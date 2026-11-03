@@ -38,7 +38,7 @@ async function fetchSource(source) {
   const body = await response.text();
   return source.kind === 'rss' ? parseRss(body, source) : parseHtml(body, source);
 }
-async function getNews() {
+export async function getNews() {
   if (cache.payload && cache.expiresAt > Date.now()) return cache.payload;
   const settled = await Promise.all(SOURCES.map(async source => {
     try { return { source: source.name, sourceKey: source.key, status: 'ok', items: await fetchSource(source) }; }
