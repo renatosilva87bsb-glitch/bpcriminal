@@ -18,6 +18,7 @@ var confirmCallback = null;
 var filterText = {};  // { tableName: '' }
 var pageIndex = {};   // { tableName: 0 }
 var PAGE_SIZE = 15;
+var teamChats = []; var activeTeamChat = ''; var teamDirectory = []; var teamChatTimer = null; var lastUnreadChats = 0;
 
 /* ════════════════════════════════════════════════════════════════
    SUPABASE HELPER
@@ -77,6 +78,7 @@ async function showApp() {
   document.getElementById('app').classList.add('visible');
   loadAllData();
   navigateTo('dashboard');
+  startTeamChatPolling();
   if(authSession.user.user_metadata&&authSession.user.user_metadata.temporary_test_account)toast('Conta de teste: troque a senha em Minha conta antes do uso real.','error');
 }
 
@@ -206,9 +208,9 @@ function navigateTo(view) {
   if (view === 'dashboard') {
     addBtn.style.display = 'none';
     document.getElementById('view-title').textContent = 'Dashboard';
-  } else if (view === 'ia_juridica' || view === 'compliance' || view === 'integrations' || view === 'account') {
+  } else if (view === 'ia_juridica' || view === 'compliance' || view === 'integrations' || view === 'account' || view === 'team_chat') {
     addBtn.style.display = 'none';
-    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : view === 'integrations' ? 'Google e documentos' : view === 'account' ? 'Minha conta' : 'Conformidade editorial';
+    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : view === 'integrations' ? 'Google e documentos' : view === 'account' ? 'Minha conta' : view === 'team_chat' ? 'Chat da equipe' : 'Conformidade editorial';
   } else {
     var cfg = VIEWS[view];
     if (cfg) {
@@ -472,6 +474,10 @@ adminActionRoot.addEventListener('click', function(event) {
   else if (action === 'google-disconnect') disconnectGoogleIntegration();
   else if (action === 'drive-upload') uploadGoogleDocument();
   else if (action === 'change-password') changeAccountPassword();
+  else if (action === 'team-chat-new') newTeamChat();
+  else if (action === 'team-chat-notify') enableTeamChatNotifications();
+  else if (action === 'team-chat-open') openTeamChat(control.getAttribute('data-chat-id'));
+  else if (action === 'team-chat-send') sendTeamMessage();
   else if (action === 'chat-send') sendLegalChat();
   else if (action === 'chat-export') exportLegalChat();
   else if (action === 'chat-clear') clearLegalChat();
@@ -489,6 +495,9 @@ function renderView(view) {
     area.innerHTML = renderDashboard();
   } else if (view === 'ia_juridica') {
     area.innerHTML = renderIAJuridica();
+  } else if (view === 'team_chat') {
+    area.innerHTML = renderTeamChat();
+    loadTeamChatData();
   } else if (view === 'integrations') {
     area.innerHTML = renderGoogleIntegrations();
     refreshGoogleIntegrations();
@@ -501,6 +510,18 @@ function renderView(view) {
     area.innerHTML = renderTableView(view);
   }
 }
+
+/* Comunicação interna do escritório: conversas isoladas por tenant. */
+function renderTeamChat(){return '<div class="team-chat-layout"><aside class="team-chat-sidebar"><div class="team-chat-toolbar"><button class="btn btn-gold btn-sm" data-action="team-chat-new">Nova conversa</button><button class="btn btn-outline btn-sm" data-action="team-chat-notify">Ativar toque</button></div><div id="team-chat-list" class="team-chat-list"><p class="ia-hint">Carregando conversas…</p></div></aside><section class="team-chat-panel"><div id="team-chat-header" class="team-chat-header">Selecione uma conversa</div><div id="team-chat-messages" class="team-chat-messages"><p class="ia-hint">As mensagens são privadas entre membros do mesmo escritório.</p></div><div class="team-chat-compose"><input id="team-chat-file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png,.txt"><textarea id="team-chat-input" class="form-textarea" rows="2" maxlength="8000" placeholder="Escreva para a equipe…"></textarea><button class="btn btn-gold" data-action="team-chat-send">Enviar</button></div><p id="team-chat-feedback" class="ia-hint"></p></section></div>';}
+async function loadTeamChatData(){var list=await sbFetch('rpc/legal_team_chat_list',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId})});if(!list.error)teamChats=list.data||[];var directory=await sbFetch('rpc/legal_team_directory',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId})});if(!directory.error)teamDirectory=directory.data||[];renderTeamChatList();if(activeTeamChat){await loadTeamMessages(activeTeamChat);}var unread=teamChats.reduce(function(n,c){return n+Number(c.unread_count||0)},0);if(unread>lastUnreadChats){playTeamChatTone();if('Notification' in window&&Notification.permission==='granted')new Notification('B&P Advocacia',{body:'Você tem novas mensagens no chat da equipe.'});}lastUnreadChats=unread;}
+function renderTeamChatList(){var el=document.getElementById('team-chat-list');if(!el)return;el.innerHTML=teamChats.length?teamChats.map(function(c){return '<button class="team-chat-list-item '+(c.chat_id===activeTeamChat?'active':'')+'" data-action="team-chat-open" data-chat-id="'+esc(c.chat_id)+'"><strong>'+esc(c.name|| (c.kind==='direct'?'Conversa direta':'Grupo da equipe'))+'</strong><span>'+esc(c.last_message||'Sem mensagens')+'</span>'+(Number(c.unread_count)?'<b>'+c.unread_count+'</b>':'')+'</button>';}).join(''):'<p class="ia-hint">Nenhuma conversa. Crie a primeira.</p>';}
+async function loadTeamMessages(chatId){var res=await sbFetch('rpc/legal_team_chat_messages',{method:'POST',body:JSON.stringify({p_chat_id:chatId})});if(res.error)return;var chat=teamChats.find(function(c){return c.chat_id===chatId});var head=document.getElementById('team-chat-header');if(head)head.textContent=chat?.name||(chat?.kind==='direct'?'Conversa direta':'Grupo da equipe');var box=document.getElementById('team-chat-messages');if(box){box.innerHTML=(res.data||[]).map(function(m){return '<div class="team-message '+(m.sender_id===authSession.user.id?'mine':'')+'"><small>'+esc(m.sender_email||'membro')+' · '+new Date(m.created_at).toLocaleString('pt-BR')+'</small><p>'+esc(m.body)+'</p>'+(m.attachment_url?'<a target="_blank" rel="noopener" href="'+esc(m.attachment_url)+'">Baixar anexo: '+esc(m.attachment_name||'arquivo')+'</a>':'')+'</div>';}).join('')||'<p class="ia-hint">Nenhuma mensagem ainda.</p>';box.scrollTop=box.scrollHeight;}await sbFetch('rpc/legal_mark_team_chat_read',{method:'POST',body:JSON.stringify({p_chat_id:chatId})});}
+async function openTeamChat(chatId){activeTeamChat=chatId;renderTeamChatList();await loadTeamMessages(chatId);}
+async function newTeamChat(){var target=prompt('E-mail do advogado para conversa direta. Deixe vazio para criar um grupo com toda a equipe:')||'';var others=teamDirectory.filter(function(x){return x.user_id!==authSession.user.id;});if(!others.length){toast('Não há outro membro ativo no escritório para iniciar uma conversa.','error');return;}var chosen=target?others.filter(function(x){return String(x.email).toLowerCase()===target.trim().toLowerCase();}):others;if(target&&!chosen.length){toast('Esse e-mail não está vinculado a este escritório.','error');return;}var kind=target?'direct':'group';var name=target?(chosen[0].email):((prompt('Nome do grupo (opcional):')||'Equipe do escritório'));var res=await sbFetch('rpc/legal_create_team_chat',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId,p_kind:kind,p_name:name,p_member_ids:chosen.map(function(x){return x.user_id;})})});if(res.error){toast('Não foi possível criar a conversa.','error');return;}activeTeamChat=res.data;await loadTeamChatData();}
+async function sendTeamMessage(){if(!activeTeamChat){toast('Selecione uma conversa.','error');return;}var input=document.getElementById('team-chat-input'),body=input.value.trim(),file=document.getElementById('team-chat-file')?.files?.[0],feedback=document.getElementById('team-chat-feedback');if(!body&&!file){toast('Escreva uma mensagem ou selecione um anexo.','error');return;}if(file&&file.size>2*1024*1024){toast('O anexo deve ter até 2 MB.','error');return;}var attachmentUrl='',attachmentName='';try{if(file){var encoded=await new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(String(r.result).split(',')[1])};r.onerror=reject;r.readAsDataURL(file)});var mime=file.type||'text/plain';var uploaded=await googleApi('/api/google/drive/upload',{method:'POST',body:JSON.stringify({name:file.name,mime_type:mime,base64:encoded})});attachmentUrl=uploaded.file?.webContentLink||uploaded.file?.webViewLink||'';attachmentName=file.name;}var res=await sbFetch('rpc/legal_send_team_message',{method:'POST',body:JSON.stringify({p_chat_id:activeTeamChat,p_body:body||'Anexo enviado.',p_attachment_name:attachmentName,p_attachment_url:attachmentUrl})});if(res.error)throw new Error('Não foi possível enviar.');input.value='';document.getElementById('team-chat-file').value='';if(feedback)feedback.textContent='';await loadTeamChatData();}catch(e){if(feedback)feedback.textContent=e.message||'Falha no envio.';}}
+function playTeamChatTone(){try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.035;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.12);}catch(e){}}
+function enableTeamChatNotifications(){if('Notification' in window)Notification.requestPermission().then(function(){toast('Notificações do chat atualizadas.','success')});}
+function startTeamChatPolling(){if(teamChatTimer)clearInterval(teamChatTimer);teamChatTimer=setInterval(function(){if(currentView==='team_chat')loadTeamChatData();},5000);}
 
 /* IA interna: chave e geração somente no backend; entrada sanitizada e revisão humana. */
 var legalChatMessages = [];
@@ -846,7 +867,7 @@ async function changeAccountPassword(){
 }
 (function addUtilityNavigation(){
   var nav=document.querySelector('.sidebar-nav');if(!nav)return;
-  [['ia_juridica','IA interna · revisão humana'],['compliance','Conformidade editorial'],['integrations','Google e documentos'],['account','Minha conta / senha']].forEach(function(entry){
+  [['team_chat','Chat da equipe'],['ia_juridica','IA interna · revisão humana'],['compliance','Conformidade editorial'],['integrations','Google e documentos'],['account','Minha conta / senha']].forEach(function(entry){
     var button=document.createElement('button');button.type='button';button.className='nav-item';button.dataset.view=entry[0];button.textContent=entry[1];button.addEventListener('click',function(){navigateTo(entry[0]);closeMobileMenu();});nav.appendChild(button);
   });
 })();
