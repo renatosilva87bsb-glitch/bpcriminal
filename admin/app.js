@@ -472,7 +472,8 @@ adminActionRoot.addEventListener('click', function(event) {
   else if (action === 'google-disconnect') disconnectGoogleIntegration();
   else if (action === 'drive-upload') uploadGoogleDocument();
   else if (action === 'change-password') changeAccountPassword();
-  else if (action === 'team-link') linkTeamMember();
+  else if (action === 'team-authorize') manageTeamAccess(true);
+  else if (action === 'team-revoke') manageTeamAccess(false);
 });
 adminActionRoot.addEventListener('input', function(event) {
   var control = event.target.closest('[data-action="search"]');
@@ -812,21 +813,21 @@ async function changeAccountPassword(){
 
 function renderTeamSettings(){
   if(!['owner','admin'].includes(currentRole))return '';
-  return '<div class="ia-card" style="margin-top:20px"><h3 class="ia-card-title">Equipe do escritório</h3><p class="ia-hint">Para liberar um associado, peça que ele entre uma primeira vez com Google. A conta será registrada, mas o CRM ficará bloqueado até sua liberação abaixo. Informe exatamente o e-mail Google usado. Não conceda acesso a pessoas sem autorização do escritório.</p><label class="form-label" for="team-email">E-mail do associado já registrado</label><input class="form-input" id="team-email" type="email" autocomplete="off"><label class="form-label" for="team-role" style="margin-top:16px">Permissão</label><select class="form-select" id="team-role"><option value="agent">Advogado / associado — operação jurídica</option><option value="viewer">Somente leitura</option><option value="manager">Gestão — inclui honorários</option><option value="admin">Administrador — gestão de acesso</option></select><button class="btn btn-gold" data-action="team-link" style="margin-top:16px">Liberar / atualizar associado</button><div id="team-member-list" style="margin-top:20px" role="status">Carregando equipe…</div><p class="ia-hint">O proprietário não pode ser alterado nesta tela. O isolamento é por escritório; os perfis operacionais têm acesso aos registros jurídicos desse escritório.</p></div>';
+  return '<div class="ia-card" style="margin-top:20px"><h3 class="ia-card-title">Equipe do escritório</h3><p class="ia-hint">Cadastre o e-mail Google do advogado diretamente aqui. A autorização fica pendente até ele entrar com o mesmo e-mail; depois do primeiro login, o acesso é liberado automaticamente. Usuários fora desta lista continuam bloqueados.</p><label class="form-label" for="team-email">E-mail a autorizar ou revogar</label><input class="form-input" id="team-email" type="email" autocomplete="off"><label class="form-label" for="team-role" style="margin-top:16px">Permissão</label><select class="form-select" id="team-role"><option value="agent">Advogado / associado — operação jurídica</option><option value="viewer">Somente leitura</option><option value="manager">Gestão — inclui honorários</option><option value="admin">Administrador — gestão de acesso</option></select><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"><button class="btn btn-gold" data-action="team-authorize">Autorizar e-mail</button><button class="btn btn-outline" data-action="team-revoke">Revogar acesso</button></div><div id="team-member-list" style="margin-top:20px" role="status">Carregando autorizações…</div><p class="ia-hint">Cada pessoa usa seu próprio login. O CRM é compartilhado somente dentro deste escritório e o proprietário não pode ser removido nesta tela.</p></div>';
 }
 async function refreshTeamSettings(){
   var target=document.getElementById('team-member-list');if(!target)return;
-  var result=await sbFetch('rpc/legal_team_members',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId})});
+  var result=await sbFetch('rpc/legal_team_access',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId})});
   if(result.error){target.textContent='Não foi possível consultar a equipe.';return;}
-  target.innerHTML=(result.data||[]).map(function(member){return '<p>'+esc(member.email)+' · <strong>'+esc(member.role)+'</strong></p>';}).join('');
+  target.innerHTML=(result.data||[]).map(function(member){return '<p><strong>'+esc(member.email)+'</strong> · '+esc(member.role)+' · '+(member.active?(member.registered?'ativo':'autorizado, aguardando primeiro login'):'revogado')+'</p>';}).join('') || '<p class="ia-hint">Nenhum e-mail autorizado.</p>';
 }
-async function linkTeamMember(){
+async function manageTeamAccess(active){
   var email=document.getElementById('team-email').value.trim();var role=document.getElementById('team-role').value;
-  if(!/^\S+@\S+\.\S+$/.test(email)){toast('Informe o e-mail registrado do associado.','error');return;}
-  openConfirm('Liberar acesso ao escritório','Autorizar '+email+' com o papel '+role+'? A pessoa terá acesso aos dados do escritório permitidos por esse perfil.',async function(){
-    var result=await sbFetch('rpc/legal_link_existing_member',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId,p_email:email,p_role:role})});
-    if(result.error){toast(String(result.error.message||'').includes('account_not_registered')?'A conta ainda não existe. Peça ao associado que entre com Google primeiro.':'Não foi possível liberar a conta. Confira sua permissão e o e-mail.','error');return;}
-    toast('Permissão atualizada. O associado pode entrar novamente.','success');refreshTeamSettings();
+  if(!/^\S+@\S+\.\S+$/.test(email)){toast('Informe um e-mail válido.','error');return;}
+  openConfirm(active?'Autorizar acesso ao escritório':'Revogar acesso ao escritório',active?'Autorizar '+email+' com o papel '+role+'? O acesso será liberado automaticamente quando essa pessoa entrar com o mesmo e-mail Google.':'Revogar '+email+'? A conta perderá o acesso a este escritório.',async function(){
+    var result=await sbFetch('rpc/legal_manage_team_access',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId,p_email:email,p_role:role,p_active:active})});
+    if(result.error){toast('Não foi possível atualizar o acesso. Confira sua permissão e o e-mail.','error');return;}
+    toast(active?'E-mail autorizado. O acesso será liberado no primeiro login Google.':'Acesso revogado.','success');refreshTeamSettings();
   });
 }
 

@@ -7,6 +7,21 @@ const siteUrl = () => String(process.env.PUBLIC_SITE_URL || '').replace(/\/$/, '
 const redirectUri = () => `${siteUrl()}/api/google/oauth/callback`;
 const cookie = (value, maxAge) => `bp_google_oauth_state=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=None; Secure`;
 
+async function autoProvisionAllowlistedAdmin(user) {
+  const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const email = String(user?.email || '').trim().toLowerCase();
+  if (!serviceKey || !supabaseUrl || !user?.id || !email) return false;
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/legal_auto_provision_admin`, {
+    method: 'POST',
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_user_id: user.id, p_email: email }),
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!response.ok) return false;
+  return Boolean(await response.json().catch(() => false));
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return json(res, 405, { error: 'Método não permitido.' }); }
   const url = new URL(req.url || '/', 'http://localhost');
@@ -45,6 +60,7 @@ export default async function handler(req, res) {
     const sessionResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=id_token`, { method: 'POST', headers: { apikey: publishableKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'google', id_token: tokens.id_token, access_token: tokens.access_token }), signal: AbortSignal.timeout(10000) });
     const session = await sessionResponse.json();
     if (!sessionResponse.ok || !session.access_token || !session.refresh_token) return json(res, 502, { error: 'Google autorizou, mas o Supabase não criou a sessão.' });
+    await autoProvisionAllowlistedAdmin(session.user);
     res.setHeader('Set-Cookie', cookie('', 0));
     const destination = new URL('/admin/', siteUrl());
     destination.hash = new URLSearchParams({ access_token: session.access_token, refresh_token: session.refresh_token, type: 'bearer' }).toString();
