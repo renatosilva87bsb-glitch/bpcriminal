@@ -66,3 +66,9 @@
 
 - [x] Substituir os fundos genéricos da home por imagens locais do STF e do TJDFT, com enquadramento responsivo e otimização para web.
 - [x] Exibir créditos, links de licença e aviso de ausência de vínculo institucional no rodapé.
+
+## Concluído — Restauração e notícias oficiais
+
+- [x] Restaurar o stylesheet completo após a publicação ter entregue apenas 640 bytes de CSS; manter as imagens institucionais e os estilos do plantão.
+- [x] Criar `GET /api/news` com fontes oficiais do STJ, STF e CNJ, cache de cinco minutos, timeout por fonte, indicação de disponibilidade e links para a origem.
+- [x] Substituir cartões editoriais estáticos por painel automático com atualização periódica, fonte e data visíveis, fallback e respeito a `prefers-reduced-motion`.

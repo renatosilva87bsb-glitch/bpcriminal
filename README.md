@@ -140,3 +140,9 @@ Sirva a pasta com um servidor local para testar navegação e layout. O formulá
 ## Imagens institucionais de Brasília
 
 A home usa imagens locais do Supremo Tribunal Federal e do Palácio da Justiça do TJDFT para situar visualmente o escritório em Brasília. A imagem do STF é de Rob Sinclair, sob CC BY-SA 2.0; a imagem do TJDFT é de Borowskki, indicada como domínio público na página do arquivo. Os créditos e links de licença aparecem no rodapé e em `research/site-images.md`. O layout informa que as imagens são referências arquitetônicas e não sugerem vínculo institucional, patrocínio ou endosso pelos tribunais.
+
+## Canal de notícias oficiais
+
+A home agora expõe o endpoint público `GET /api/news`, que agrega notícias do RSS oficial do STJ e das páginas oficiais de notícias do STF e do CNJ. O servidor mantém cache de cinco minutos, aplica timeout por fonte e informa quais fontes estão disponíveis. O navegador atualiza o painel automaticamente a cada cinco minutos, preservando o link para a publicação original. Isso é atualização automática periódica, não transmissão em tempo real segundo a segundo.
+
+Fontes: [RSS de notícias do STJ](https://res.stj.jus.br/hrestp-c-portalp/RSS.xml), [Notícias STF](https://noticias.stf.jus.br/) e [Agência CNJ](https://www.cnj.jus.br/agencia-cnj/noticias-do-cnj/).

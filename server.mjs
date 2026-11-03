@@ -9,6 +9,7 @@ import contactEventsHandler from './api/contact-events.js';
 import pushSubscribeHandler from './api/push-subscribe.js';
 import pushSendHandler from './api/push-send.js';
 import googleOAuthHandler from './api/google-oauth.js';
+import newsHandler from './api/news.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const staticRoot = path.join(root, 'public');
@@ -21,7 +22,8 @@ const apiHandlers = {
   '/api/push-subscribe': pushSubscribeHandler,
   '/api/push-send': pushSendHandler,
   '/api/google/oauth/start': googleOAuthHandler,
-  '/api/google/oauth/callback': googleOAuthHandler
+  '/api/google/oauth/callback': googleOAuthHandler,
+  '/api/news': newsHandler
 };
 const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json; charset=utf-8', '.webmanifest':'application/manifest+json', '.svg':'image/svg+xml', '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.webp':'image/webp', '.ico':'image/x-icon', '.xml':'application/xml', '.txt':'text/plain; charset=utf-8' };
 
