@@ -117,7 +117,7 @@ async function uploadDocument(connection, body, access) {
   const payload = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: [folder] })}\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`), bytes, Buffer.from(`\r\n--${boundary}--`)
   ]);
-  const file = await google('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', access, {
+  const file = await google('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink', access, {
     method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: payload
   });
   return { uploaded: true, file };
