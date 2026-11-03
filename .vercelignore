@@ -1,0 +1,13 @@
+/archive/**
+/tests/**
+*.zip
+.env
+.env.local
+.env.*.local
+node_modules/**
+/supabase/**
+/tests/**
+/README.md
+/.env.example
+/.gitignore
+/.vercelignore
