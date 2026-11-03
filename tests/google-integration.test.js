@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import oauth from '../api/google-oauth.js';
+import integrations from '../api/google-calendar.js';
+import { signedState, readState, encrypt, decrypt } from '../api/_google.js';
+
+const res = () => ({ code:200, headers:{}, body:null, setHeader(k,v){this.headers[k]=v;},status(c){this.code=c;return this;},json(v){this.body=v;return this;},end(){this.ended=true;} });
+function setup(){const old={...process.env};Object.assign(process.env,{PUBLIC_SITE_URL:'https://example.com',GOOGLE_CLIENT_ID:'test.apps.googleusercontent.com',GOOGLE_CLIENT_SECRET:'test-secret-only',SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLISHABLE_KEY:'public-test',SUPABASE_SECRET_KEY:'sb_secret_test'});return()=>{process.env=old;};}
+
+test('signed integration state rejects tampering and expiry',()=>{const restore=setup();try{const state=signedState({kind:'integrations',nonce:'abc',exp:Date.now()+10000});assert.equal(readState(state).kind,'integrations');assert.equal(readState(state+'x'),null);assert.equal(readState(signedState({nonce:'abc',exp:1})),null);}finally{restore();}});
+test('encrypted Google refresh tokens do not expose plaintext',()=>{const restore=setup();try{const data=encrypt('test-refresh-only');assert.equal(data.includes('test-refresh-only'),false);assert.equal(decrypt(data),'test-refresh-only');assert.throws(()=>decrypt(data.slice(0,-3)));}finally{restore();}});
+test('Google login start returns a real 302 even with unrelated integration cookie',async()=>{const restore=setup();try{const response=res();await oauth({method:'GET',url:'/api/google/oauth/start',headers:{cookie:'bp_google_calendar_state=stale'}},response);assert.equal(response.code,302);assert.match(response.headers.Location,/accounts.google.com/);assert.match(response.headers['Set-Cookie'],/HttpOnly/);}finally{restore();}});
+test('OAuth callback rejects missing browser state before fetching',async()=>{const restore=setup(),old=global.fetch;global.fetch=()=>{throw Error('must not fetch');};try{const response=res();await oauth({method:'GET',url:'/api/google/oauth/callback?code=x&state=y',headers:{}},response);assert.equal(response.code,400);}finally{global.fetch=old;restore();}});
+test('integration operations require authenticated office membership',async()=>{const restore=setup();try{for(const path of ['/api/google/calendar/status','/api/google/drive/files']){const response=res();await integrations({method:'GET',url:path,headers:{}},response);assert.equal(response.code,401);}for(const path of ['/api/google/calendar/sync','/api/google/contacts/sync','/api/google/drive/upload']){const response=res();await integrations({method:'POST',url:path,headers:{},body:{}},response);assert.equal(response.code,401);}}finally{restore();}});
+test('integration posts reject unapproved cross-site origin',async()=>{const restore=setup();try{const response=res();await integrations({method:'POST',url:'/api/google/calendar/connect',headers:{origin:'https://other.example'},body:{}},response);assert.equal(response.code,403);}finally{restore();}});

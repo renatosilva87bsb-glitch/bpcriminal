@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://bandeiraepaulo.adv.br/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://bandeiraepaulo.adv.br/direito-criminal.html</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://bandeiraepaulo.adv.br/areas-de-atuacao.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bandeiraepaulo.adv.br/legislacao.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bandeiraepaulo.adv.br/privacidade.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://bandeiraepaulo.vercel.app/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://bandeiraepaulo.vercel.app/direito-criminal.html</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://bandeiraepaulo.vercel.app/areas-de-atuacao.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bandeiraepaulo.vercel.app/legislacao.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bandeiraepaulo.vercel.app/privacidade.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>

@@ -18,11 +18,16 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const sub = body?.subscription;
     if (!sub?.endpoint || typeof sub.endpoint !== 'string' || sub.endpoint.length > 2048 || !sub.keys?.p256dh || !sub.keys?.auth) return json(res,400,{error:'Inscrição push inválida.'});
+    let endpoint;try{endpoint=new URL(sub.endpoint);}catch{return json(res,400,{error:'Endpoint push inválido.'});}
+    const permitted=['fcm.googleapis.com','updates.push.services.mozilla.com','push.services.mozilla.com','web.push.apple.com','notify.windows.com','notification.windows.com'];
+    if(endpoint.protocol!=='https:'||endpoint.port||endpoint.username||endpoint.password||!permitted.some(host=>endpoint.hostname===host||endpoint.hostname.endsWith('.'+host)))return json(res,400,{error:'Provedor push não permitido.'});
     const headers = { apikey: secret, Authorization: secret.startsWith('sb_secret_') ? undefined : `Bearer ${secret}`, 'Content-Type':'application/json' };
     if (!headers.Authorization) delete headers.Authorization;
-    const membershipResponse = await fetch(`${url.replace(/\/$/,'')}/rest/v1/tenant_members?select=tenant_id&user_id=eq.${encodeURIComponent(user.id)}&limit=1`, {headers,signal:AbortSignal.timeout(7000)});
+    const selected=String(req.headers['x-bp-tenant-id']||'');if(selected&&!/^[0-9a-f-]{36}$/i.test(selected))return json(res,400,{error:'Escritório inválido.'});
+    const membershipResponse = await fetch(`${url.replace(/\/$/,'')}/rest/v1/tenant_members?select=tenant_id&user_id=eq.${encodeURIComponent(user.id)}${selected?'&tenant_id=eq.'+encodeURIComponent(selected):''}&order=created_at.asc&limit=2`, {headers,signal:AbortSignal.timeout(7000)});
     if (!membershipResponse.ok) return json(res,503,{error:'Não foi possível validar o vínculo institucional.'});
     const memberships = await membershipResponse.json();
+    if(memberships.length>1&&!selected)return json(res,409,{error:'Selecione o escritório no painel.'});
     if (!memberships.length) return json(res,403,{error:'Usuário sem vínculo ativo com o escritório.'});
     const saved = await fetch(`${url.replace(/\/$/,'')}/rest/v1/push_subscriptions?on_conflict=endpoint`, {method:'POST',headers:{...headers,Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({tenant_id:memberships[0].tenant_id,user_id:user.id,endpoint:sub.endpoint,p256dh:sub.keys.p256dh,auth_secret:sub.keys.auth,updated_at:new Date().toISOString()}),signal:AbortSignal.timeout(7000)});
     if (!saved.ok) return json(res,503,{error:'Não foi possível salvar a inscrição de notificações.'});

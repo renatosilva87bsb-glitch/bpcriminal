@@ -1,15 +1,16 @@
 import crypto from 'node:crypto';
 import calendarHandler from './google-calendar.js';
+import { readState } from './_google.js';
 
 const json = (res, status, payload) => { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); return res.status(status).json(payload); };
 const siteUrl = () => String(process.env.PUBLIC_SITE_URL || '').replace(/\/$/, '');
 const redirectUri = () => `${siteUrl()}/api/google/oauth/callback`;
-const cookie = (value, maxAge) => `bp_google_oauth_state=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax; Secure`;
+const cookie = (value, maxAge) => `bp_google_oauth_state=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=None; Secure`;
 
 export default async function handler(req, res) {
-  if (String(req.headers?.cookie || '').includes('bp_google_calendar_state=')) return calendarHandler(req, res);
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return json(res, 405, { error: 'Método não permitido.' }); }
   const url = new URL(req.url || '/', 'http://localhost');
+  if (url.pathname.endsWith('/callback') && readState(url.searchParams.get('state'))?.kind === 'integrations') return calendarHandler(req, res);
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     authorize.searchParams.set('state', state);
     authorize.searchParams.set('access_type', 'offline');
     authorize.searchParams.set('prompt', 'select_account');
-    res.statusCode = 302; res.setHeader('Location', authorize.toString()); return res.end();
+    res.status(302); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Location', authorize.toString()); return res.end();
   }
 
   if (url.searchParams.get('error')) return json(res, 400, { error: 'Autorização Google cancelada ou recusada.' });
@@ -47,6 +48,6 @@ export default async function handler(req, res) {
     res.setHeader('Set-Cookie', cookie('', 0));
     const destination = new URL('/admin/', siteUrl());
     destination.hash = new URLSearchParams({ access_token: session.access_token, refresh_token: session.refresh_token, type: 'bearer' }).toString();
-    res.statusCode = 302; res.setHeader('Cache-Control', 'no-store'); res.setHeader('Location', destination.toString()); return res.end();
+    res.status(302); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Location', destination.toString()); return res.end();
   } catch { return json(res, 502, { error: 'Falha segura ao concluir o login Google.' }); }
 }

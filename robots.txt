@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/
-Sitemap: https://bandeiraepaulo.adv.br/sitemap.xml
+Sitemap: https://bandeiraepaulo.vercel.app/sitemap.xml

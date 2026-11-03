@@ -1,74 +1,38 @@
-# TODO — B&P Advocacia Criminal
+# B&P Advocacia — estado de entrega
 
-## Concluído — Base institucional e posicionamento
+## Site profissional e acesso
 
-- [x] O site deve ser um escritório de advocacia completo, com especialização em Direito Penal e Prática Criminal.
-- [x] A comunicação principal deve destacar: “Defesa intransigente dos seus direitos. Escritório com forte atuação em Direito Penal e Prática Criminal, preparado para intervir com rapidez e técnica nas situações mais delicadas.”
-- [x] O site deve apresentar também assessoria jurídica integral nas áreas Cível, Família, Trabalhista e Previdenciária, com soluções seguras e acompanhamento próximo.
-- [x] O endereço institucional deve aparecer como SCS Quadra 6, Bloco A, Lote 71, Sala 202 — Edifício José Severo, Asa Sul, Brasília/DF, CEP 70326-900.
-- [x] O telefone principal do escritório deve aparecer como (61) 99420-0001 e o telefone de contato criminal como (61) 98289-3164.
+- [x] Preservar e melhorar o site institucional do projeto enviado, responsivo e com foco criminal, links de WhatsApp, equipe e imagens licenciadas do STF/TJDFT com créditos e sem sugerir vínculo institucional.
+- [x] Restaurar o CSS completo e manter raiz/public sincronizadas, evitando sobrescrita que quebre o site; revalidar assets de URL fixa e atualizar caches do PWA.
+- [x] Disponibilizar notícias oficiais STF/STJ/CNJ com fonte e link original, cache/atualização a cada cinco minutos, sem vender a consulta periódica como streaming em tempo real.
+- [x] Destacar Plantão Criminal 24h em vermelho pulsante com ressalva de escala operacional e respeito à redução de movimento.
+- [x] Corrigir metadados para o domínio solicitado `https://bandeiraepaulo.vercel.app`; remover o CNPJ fictício, sem inventar inscrição real.
 
-## Concluído — Prontidão e contato
+## CRM multiusuário e IA interna
 
-- [x] O site deve oferecer uma chamada de “Plantão Criminal 24h” para atendimento em flagrantes, delegacias e audiências de custódia, usando os canais informados pelo escritório.
-- [x] A home deve permitir contato rápido por telefone e WhatsApp, além do formulário de solicitação inicial.
-- [x] O formulário deve solicitar apenas dados mínimos de retorno, consentimento e área/natureza do contato; não deve solicitar relatos detalhados, documentos processuais ou informações sigilosas.
-- [x] O site deve deixar claro que o envio do formulário não cria, por si só, relação advogado-cliente nem garante resultado.
+- [x] Criar a conta master de teste solicitada, vinculada como owner ao escritório; validar autenticação real e leitura dos módulos do próprio escritório sob RLS. A senha não fica no código. Oferecer troca de senha no painel.
+- [x] Disponibilizar gestão de associados existentes por e-mail e papel, restrita a owner/admin; Google não concede permissões administrativas automaticamente. Proibir mudança do proprietário e da própria permissão nessa tela.
+- [x] Usar permissões por usuário e escritório, contexto explícito quando houver múltiplos memberships, e negar APIs com contexto ambíguo ou não autorizado. Restringir honorários também no banco.
+- [x] Leads públicos entram diretamente no tenant institucional do CRM, com consentimento, idempotência, honeypot, limite de cinco envios por minuto/origem e somente hash da origem no controle de limite.
+- [x] Registrar contatos WhatsApp somente como eventos operacionais, sem copiar mensagens; conferir referências customer/conversation no tenant e impor referências jurídicas por triggers no banco.
+- [x] IA exclusivamente interna, chave no backend, autenticação/autorizações, limite de 20 usos/minuto/usuário/escritório, bloqueio de padrões identificáveis e logs de hashes/metadados sem prompt/resposta. Teste real gerou 200 usando modelo disponível. A sanitização e revisão humana continuam obrigatórias; o filtro não é anonimização garantida.
 
-## Concluído — Equipe profissional
+## Google, tema, PWA e alertas
 
-- [x] Exibir Dr. Fernando — OAB 45.171/DF — admin@fernandoadv.com.br — (61) 9 9313-7555.
-- [x] Exibir Dr. Diego — OAB 65.432/DF — diegobandeira.ad@gmail.com — (61) 9 8289-3164.
-- [x] Exibir Dr. Antônio — OAB 68.791/DF — antoniojuniorajadv@gmail.com.
-- [x] Preservar os retratos fornecidos em `assets/team/` e manter navegação para as páginas de atuação e biblioteca jurídica.
+- [x] Corrigir redirecionamento OAuth HTTP 302 e criar sessão Supabase com os tokens antes de limpar o fragmento da URL. Provedor Google habilitado no Supabase.
+- [x] Tela Google e documentos com estado de conexão e permissões, instruções claras, callback protegido por state, tokens cifrados somente no backend, erro útil e desconexão.
+- [x] Agenda exporta/atualiza individualmente compromisso privado e genérico, sem nomes de clientes/processos/notas, com duração de uma hora e lembrete de 30 minutos. Identificador determinístico evita reenvios duplicados.
+- [x] Drive limitado a pasta/arquivos criados pelo app (`drive.file`), com upload/listagem de PDF, DOCX, JPG, PNG e TXT até 2 MB. Sem compartilhamento público automático. Cada advogado autoriza sua própria conta.
+- [x] Contatos exporta nome/telefone/e-mail somente de cliente ativo com consentimento; guarda vínculo e usa lock transacional contra criações simultâneas. Não importa agenda ou contatos pessoais e não oferece sincronização bidirecional automática.
+- [x] Claro/escuro/automático com persistência e atualização ao alterar o sistema; estilos separados e contraste no site e no painel.
+- [x] PWA com manifesto/ícones, instalação conforme navegador e cache somente público. Não cachear painel/API nem oferecer fallback com dados privados. Push exige consentimento e sessão, aceita somente provedores conhecidos e envia mensagens genéricas; teste é restrito ao próprio usuário.
+- [x] Dashboard mostra prazos e agenda; lembretes Google nos eventos exportados. Não há monitoramento judicial nem cálculo automático de prazo.
 
-## Concluído — Qualidade de produto
+## Liberação definitiva — pendências reais
 
-- [x] Manter páginas públicas rastreáveis com conteúdo HTML inicial, metadados e sitemap/robots coerentes.
-- [x] Manter navegação responsiva, menu mobile, skip link, foco visível e suporte a `prefers-reduced-motion`.
-- [x] Registrar as rotas públicas em `public/manus-routes.json`.
-- [x] Preservar a base server-side de leads e a área administrativa, sem expor segredos no frontend.
-- [x] Executar checagens de sintaxe e testes existentes antes do checkpoint.
-
-## Pendente antes de publicação definitiva
-
-- [ ] Substituir o CNPJ informado pelo escritório após validação cadastral; o número fornecido na base é tratado como dado de demonstração.
-- [ ] Configurar Supabase, secrets do endpoint de leads, domínio e canal oficial de privacidade antes de produção.
-- [ ] Confirmar escala e capacidade operacional do Plantão Criminal 24h em todos os períodos anunciados.
-- [ ] Confirmar autorização de uso institucional das fotografias e revisar textos conforme as regras éticas aplicáveis à publicidade da advocacia.
-
-
-## Concluído — CRM jurídico interno e segurança operacional
-
-- [x] Reaproveitar o Supabase conectado com isolamento por `tenant_id`, permissões `owner`, `admin`, `manager`, `agent` e `viewer`, sem criar um segundo modelo de escritório.
-- [x] Integrar leads públicos diretamente a `customers`, com status `lead`, área, urgência, consentimento e `lead_request_id` idempotente.
-- [x] Entregar módulos internos para processos, prazos, agenda, movimentações, honorários e procurações, com RLS por escritório e edição restrita a perfis operacionais.
-- [x] Entregar histórico de contato via `legal_contact_events` com canal, direção, tipo e resumo operacional; a interface rejeita conteúdo de mensagens, documentos e dados sigilosos.
-- [x] Entregar IA exclusivamente interna com autenticação, rate limit por usuário/tenant, bloqueio de dados sensíveis, backend Gemini, logs sem prompt/resposta e revisão humana obrigatória.
-- [x] Entregar checklist editorial interno baseado no Provimento 205/2021, explicitamente sem certificação automática ou substituição da revisão do advogado/TED.
-- [x] Registrar migrações SQL no projeto e manter scripts de sintaxe/testes executáveis.
-
-## Pendente antes de ativar o CRM em produção
-
-- [ ] Configurar no ambiente server-side `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` e `GEMINI_API_KEY`; nunca colocar `SUPABASE_SECRET_KEY` ou `GEMINI_API_KEY` no navegador.
-- [ ] Criar o primeiro tenant, o usuário owner e os membros do escritório no Supabase Auth/`tenant_members`.
-- [ ] Validar retenção, controle de acesso e exportação/eliminação de dados com o advogado responsável e o encarregado de proteção de dados.
-- [ ] Validar presencialmente todas as afirmações institucionais, dados de OAB/CNPJ, autorização de fotografias, capacidade real do Plantão Criminal 24h e versão final dos textos com o responsável ou TED/OAB competente.
-
-## Concluído — Publicação, OAuth e plantão
-
-- [x] Criar o projeto Vercel `bandeiraepaulo`, publicar em produção e associar `https://bandeiraepaulo.vercel.app` como alias.
-- [x] Configurar secrets de produção sem exibir valores, validar `/api/config` e manter as chaves secretas fora do bundle público.
-- [x] Implementar `/api/google/oauth/start` e `/api/google/oauth/callback` com state anti-CSRF, troca server-side e sessão Supabase.
-- [x] Destacar “Plantão Criminal 24h” em vermelho pulsante, preservando a ressalva de escala operacional e o suporte a `prefers-reduced-motion`.
-
-## Concluído — Imagens institucionais de Brasília
-
-- [x] Substituir os fundos genéricos da home por imagens locais do STF e do TJDFT, com enquadramento responsivo e otimização para web.
-- [x] Exibir créditos, links de licença e aviso de ausência de vínculo institucional no rodapé.
-
-## Concluído — Restauração e notícias oficiais
-
-- [x] Restaurar o stylesheet completo após a publicação ter entregue apenas 640 bytes de CSS; manter as imagens institucionais e os estilos do plantão.
-- [x] Criar `GET /api/news` com fontes oficiais do STJ, STF e CNJ, cache de cinco minutos, timeout por fonte, indicação de disponibilidade e links para a origem.
-- [x] Substituir cartões editoriais estáticos por painel automático com atualização periódica, fonte e data visíveis, fallback e respeito a `prefers-reduced-motion`.
+- [ ] Publicar esta rodada de correções na Vercel e validar sua versão em produção. O deployment anterior está no ar; o novo ainda deve ser confirmado.
+- [ ] Concluir consentimento da conta Google do titular e testar um evento, contato autorizado e documento próprios. Se o Google Cloud exigir, habilitar Calendar/Drive/People APIs, usuários de teste ou verificação do aplicativo. Credenciais cadastradas não provam autorização concluída.
+- [ ] Permitir notificações no dispositivo real e conferir recebimento do teste. Push depende do navegador, sistema e permissão do usuário.
+- [ ] Serviço de push agendado de prazos com o painel fechado não foi ativado; nesta versão os alertas são no CRM e nos eventos enviados à Agenda.
+- [ ] Trocar a senha master de teste antes do uso real e rotacionar credenciais secretas compartilhadas no chat, atualizando os ambientes sem registrar valores em arquivos.
+- [ ] Confirmar dados cadastrais, inscrições OAB, qualificações, autorização de fotografias e existência real da escala 24h. Revisar conteúdo e aviso de privacidade por advogado responsável e, quando necessário, consultar o TED/OAB competente. Checklist editorial não certifica conformidade.

@@ -15,9 +15,16 @@ export default async function handler(req, res) {
   const eventType = String(body?.event_type || 'contact');
   const summary = String(body?.safe_summary || '').trim();
   if (!allowedChannels.has(channel) || !allowedDirections.has(direction) || !allowedTypes.has(eventType) || summary.length < 2 || summary.length > 500) return json(res, 400, { error: 'Informe um registro operacional válido.' });
-  if (sensitive.test(summary)) return json(res, 422, { error: 'O histórico seguro aceita apenas um resumo operacional sem dados sigilosos.' });
+  if (sensitive.test(summary) || /\b[^\s@]+@[^\s@]+\.[^\s@]+\b|\b\d[\d\s().-]{8,}\d\b/.test(summary)) return json(res, 422, { error: 'O histórico seguro aceita apenas um resumo operacional sem dados sigilosos.' });
   try {
-    const result = await supabaseFetch('legal_contact_events', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ tenant_id: auth.member.tenant_id, customer_id: body?.customer_id || null, conversation_id: body?.conversation_id || null, actor_id: auth.user.id, channel, direction, event_type: eventType, safe_summary: summary, external_ref: body?.external_ref ? String(body.external_ref).slice(0, 180) : null }) });
+    const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for(const [field,table] of [['customer_id','customers'],['conversation_id','conversations']]){
+      if(!body[field])continue;
+      if(!uuid.test(body[field]))return json(res,400,{error:'Referência de contato inválida.'});
+      const ref=await supabaseFetch(`${table}?select=id&id=eq.${encodeURIComponent(body[field])}&tenant_id=eq.${encodeURIComponent(auth.member.tenant_id)}&limit=1`);
+      if(!ref.response.ok||!Array.isArray(ref.data)||!ref.data.length)return json(res,404,{error:'Referência não encontrada neste escritório.'});
+    }
+    const result = await supabaseFetch('legal_contact_events', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ tenant_id: auth.member.tenant_id, customer_id: body?.customer_id || null, conversation_id: body?.conversation_id || null, actor_id: auth.user.id, channel, direction, event_type: eventType, safe_summary: summary, external_ref: null }) });
     if (!result.response.ok) return json(res, 503, { error: 'Não foi possível salvar o registro de contato.' });
     return json(res, 201, { ok: true, event: Array.isArray(result.data) ? result.data[0] : result.data });
   } catch { return json(res, 503, { error: 'Falha temporária de comunicação.' }); }

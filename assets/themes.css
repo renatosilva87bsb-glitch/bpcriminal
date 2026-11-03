@@ -1,0 +1,256 @@
+/* Theme layer kept separate from site.css so the site's original stylesheet remains intact. */
+html[data-color-scheme="light"] {
+  color-scheme: light;
+  --ink: #18272e;
+  --ink-2: #263840;
+  --paper: #f3f1eb;
+  --paper-2: #e9e6de;
+  --white: #fffefa;
+  --muted: #68747a;
+  --line: #d5d2c9;
+  --brass: #a98752;
+  --brass-light: #c6aa7b;
+  --bg: #f5f1e8;
+  --surface: #fffefa;
+  --surface-2: #f0ede5;
+  --surface-3: #e8e3d8;
+  --gold: #a98752;
+  --gold-lt: #c6aa7b;
+  --gold-dim: rgba(169, 135, 82, .13);
+  --gold-bdr: rgba(169, 135, 82, .32);
+  --text: #18272e;
+  --text-2: #536168;
+  --text-3: #778287;
+  --border: rgba(24, 39, 46, .13);
+  --danger: #b64949;
+  --danger-dim: rgba(182, 73, 73, .13);
+  --success: #387e59;
+  --succ-dim: rgba(56, 126, 89, .13);
+  --warn: #9d7b17;
+  --warn-dim: rgba(157, 123, 23, .13);
+  --info: #3976ad;
+}
+
+html[data-color-scheme="dark"] {
+  color-scheme: dark;
+  --ink: #f2eee5;
+  --ink-2: #d6e0dd;
+  --paper: #111b20;
+  --paper-2: #18262c;
+  --white: #17252b;
+  --muted: #aeb8b6;
+  --line: rgba(240, 238, 229, .16);
+  --brass: #d2a96d;
+  --brass-light: #e5c28a;
+  --bg: #0c0c0d;
+  --surface: #131315;
+  --surface-2: #1a1a1e;
+  --surface-3: #212126;
+  --gold: #c9a84c;
+  --gold-lt: #dfc370;
+  --gold-dim: rgba(201, 168, 76, .14);
+  --gold-bdr: rgba(201, 168, 76, .28);
+  --text: #f0ece3;
+  --text-2: #b8b2a7;
+  --text-3: #706c65;
+  --border: rgba(255, 255, 255, .07);
+  --danger: #c94c4c;
+  --danger-dim: rgba(201, 76, 76, .14);
+  --success: #4cae7a;
+  --succ-dim: rgba(76, 174, 122, .14);
+  --warn: #c9a020;
+  --warn-dim: rgba(201, 160, 32, .14);
+  --info: #4c8dc9;
+}
+
+.theme-toggle,
+[data-pwa-install] {
+  min-height: 40px;
+}
+
+/* Public site: do not use the text token as a dark section's background. */
+html[data-color-scheme="dark"] body {
+  background: var(--paper);
+  color: var(--ink);
+}
+html[data-color-scheme="dark"] .utility-bar,
+html[data-color-scheme="dark"] .site-footer {
+  background: #0b151a;
+}
+html[data-color-scheme="dark"] .site-header {
+  background: rgba(17, 27, 32, .96);
+  border-color: rgba(240, 238, 229, .14);
+}
+html[data-color-scheme="dark"] .main-nav { color: #d7dfdc; }
+html[data-color-scheme="dark"] .nav-contact {
+  border-color: #d6e0dd;
+  color: #f2eee5;
+}
+html[data-color-scheme="dark"] .nav-contact:hover {
+  background: #f2eee5;
+  color: #17252b;
+}
+html[data-color-scheme="dark"] .main-nav .theme-toggle {
+  color: #f2eee5;
+  border-color: rgba(240, 238, 229, .28);
+}
+html[data-color-scheme="dark"] .main-nav .theme-toggle:hover {
+  border-color: var(--brass);
+  color: var(--brass-light);
+}
+html[data-color-scheme="dark"] .criminal-feature,
+html[data-color-scheme="dark"] .contact-section {
+  background: #101c21;
+}
+html[data-color-scheme="dark"] .practice-section,
+html[data-color-scheme="dark"] .team-section {
+  background: #17252b;
+}
+html[data-color-scheme="dark"] .practice-card:hover { background: #20343b; }
+html[data-color-scheme="dark"] .method-section,
+html[data-color-scheme="dark"] .articles-section {
+  background: #18262c;
+}
+html[data-color-scheme="dark"] .knowledge-section { background: #203238; }
+html[data-color-scheme="dark"] .lead-copy { color: #d8e2df; }
+html[data-color-scheme="dark"] .intro-copy p:not(.lead-copy),
+html[data-color-scheme="dark"] .section-note,
+html[data-color-scheme="dark"] .team-placeholder p {
+  color: #b4bfbd;
+}
+html[data-color-scheme="dark"] .practice-card.featured {
+  background: #1c2c33;
+  color: #f7f4ec;
+}
+html[data-color-scheme="dark"] .practice-card.featured:hover { background: #263b43; }
+html[data-color-scheme="dark"] .method-steps article,
+html[data-color-scheme="dark"] .method-steps article:first-child,
+html[data-color-scheme="dark"] .knowledge-list,
+html[data-color-scheme="dark"] .knowledge-list > a {
+  border-color: var(--line);
+}
+html[data-color-scheme="dark"] .team-card {
+  background: #1d2b30;
+  border-color: var(--line);
+}
+html[data-color-scheme="dark"] .team-card-body > a { color: #d1dcda; }
+html[data-color-scheme="dark"] .button-light,
+html[data-color-scheme="dark"] .button-dark {
+  background: #f3f1eb;
+  color: #18272e;
+}
+html[data-color-scheme="dark"] .button-light:hover,
+html[data-color-scheme="dark"] .button-dark:hover { background: #fffefa; }
+html[data-color-scheme="dark"] .button-outline-light:hover {
+  background: #f3f1eb;
+  color: #18272e;
+}
+html[data-color-scheme="dark"] .contact-form {
+  background: #17252b;
+  color: #f2eee5;
+  border: 1px solid rgba(240, 238, 229, .16);
+}
+html[data-color-scheme="dark"] .contact-form label:not(.consent) { color: #c3cfcc; }
+html[data-color-scheme="dark"] .contact-form input:not([type="checkbox"]),
+html[data-color-scheme="dark"] .contact-form select {
+  color: #f2eee5;
+  border-color: rgba(240, 238, 229, .28);
+}
+html[data-color-scheme="dark"] .contact-form input::placeholder { color: #8e9c9a; }
+html[data-color-scheme="dark"] .contact-form .consent,
+html[data-color-scheme="dark"] .contact-form .form-disclaimer { color: #aeb8b6; }
+html[data-color-scheme="dark"] .contact-form .consent a { color: #f2eee5; }
+html[data-color-scheme="dark"] .submit-button {
+  background: #f3f1eb;
+  color: #18272e;
+}
+html[data-color-scheme="dark"] .submit-button:hover { background: #fffefa; }
+
+/* Inner and legal pages have hard-coded light surfaces in their legacy CSS. */
+html[data-color-scheme="dark"] .inner-content,
+html[data-color-scheme="dark"] .library-body {
+  background: var(--paper);
+  color: var(--ink);
+}
+html[data-color-scheme="dark"] .content-grid article > p:not(.eyebrow),
+html[data-color-scheme="dark"] .service-list p,
+html[data-color-scheme="dark"] .area-detail-grid p,
+html[data-color-scheme="dark"] .area-note p,
+html[data-color-scheme="dark"] .inner-aside p,
+html[data-color-scheme="dark"] .source-note,
+html[data-color-scheme="dark"] .library-tools label {
+  color: var(--muted);
+}
+html[data-color-scheme="dark"] .content-grid article > h2,
+html[data-color-scheme="dark"] .service-list h3,
+html[data-color-scheme="dark"] .area-detail-grid h2,
+html[data-color-scheme="dark"] .inner-aside h3,
+html[data-color-scheme="dark"] .law-group h2,
+html[data-color-scheme="dark"] .law-item strong {
+  color: var(--ink);
+}
+html[data-color-scheme="dark"] .service-list,
+html[data-color-scheme="dark"] .service-list section,
+html[data-color-scheme="dark"] .area-detail-grid,
+html[data-color-scheme="dark"] .area-detail-grid article {
+  border-color: var(--line);
+}
+html[data-color-scheme="dark"] .inner-aside,
+html[data-color-scheme="dark"] .area-note {
+  background: var(--paper-2);
+  border-color: var(--line);
+}
+html[data-color-scheme="dark"] .library-tools input,
+html[data-color-scheme="dark"] .law-group,
+html[data-color-scheme="dark"] .empty-state {
+  background: var(--white);
+  color: var(--ink);
+  border-color: var(--line);
+}
+html[data-color-scheme="dark"] .filter-list button {
+  border-color: var(--line);
+  color: var(--muted);
+}
+html[data-color-scheme="dark"] .filter-list button.active,
+html[data-color-scheme="dark"] .filter-list button:hover {
+  background: #e5c28a;
+  color: #18272e;
+  border-color: #e5c28a;
+}
+html[data-color-scheme="dark"] .law-item,
+html[data-color-scheme="dark"] .law-group { border-color: var(--line); }
+html[data-color-scheme="dark"] .law-item small { color: var(--muted); }
+html[data-color-scheme="dark"] .law-item a,
+html[data-color-scheme="dark"] .inner-aside > a:not(.button) { color: var(--brass-light); }
+
+/* Admin tokens and surfaces follow the resolved scheme, independent of admin/app.js. */
+html[data-color-scheme="light"] #login-screen,
+html[data-color-scheme="light"] #main { background: var(--bg); color: var(--text); }
+html[data-color-scheme="light"] #sidebar,
+html[data-color-scheme="light"] .topbar,
+html[data-color-scheme="light"] .drawer,
+html[data-color-scheme="light"] .confirm-box,
+html[data-color-scheme="light"] .login-box { background: var(--surface); color: var(--text); }
+html[data-color-scheme="light"] .topbar { background: rgba(245, 241, 232, .94); }
+html[data-color-scheme="light"] #login-screen input,
+html[data-color-scheme="light"] #login-screen select,
+html[data-color-scheme="light"] #login-screen textarea,
+html[data-color-scheme="light"] #app input,
+html[data-color-scheme="light"] #app select,
+html[data-color-scheme="light"] #app textarea {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+html[data-color-scheme="light"] .login-google { color: var(--gold); }
+html[data-color-scheme="dark"] .topbar { background: rgba(12, 12, 13, .92); }
+html[data-color-scheme="dark"] #login-screen input,
+html[data-color-scheme="dark"] #login-screen select,
+html[data-color-scheme="dark"] #login-screen textarea,
+html[data-color-scheme="dark"] #app input,
+html[data-color-scheme="dark"] #app select,
+html[data-color-scheme="dark"] #app textarea {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}

@@ -34,7 +34,7 @@ export default async function handler(req, res) {
   if (!MODE_INSTRUCTIONS[mode] || input.length < 10 || input.length > 12000) return json(res, 400, { error: 'Informe uma tarefa e um texto interno dentro do limite permitido.' });
   if (containsSensitive(input)) return json(res, 422, { error: 'Remova CPF, processo, telefone, e-mail, senha, documento ou outro dado pessoal antes de usar a IA.' });
   const base = supabaseBase();
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   const apiKey = process.env.GEMINI_API_KEY;
   if (!base || !apiKey || !serviceKey()) return json(res, 503, { error: 'A IA interna ainda não foi configurada no ambiente seguro.' });
   const started = Date.now();
@@ -42,7 +42,8 @@ export default async function handler(req, res) {
   try {
     const limitResponse = await fetch(`${base}/rest/v1/rpc/consume_ai_rate_limit`, { method: 'POST', headers: { ...bearerHeaders(auth.token), Prefer: 'return=representation' }, body: JSON.stringify({ p_tenant_id: auth.member.tenant_id, p_limit: 20 }), signal: AbortSignal.timeout(8000) });
     const limitText = await limitResponse.text();
-    if (!limitResponse.ok || limitText === 'false') {
+    if (!limitResponse.ok) return json(res, 503, { error: 'O controle de uso da IA está indisponível. Solicite a verificação do administrador.' });
+    if (limitText === 'false') {
       await writeAudit(auth.member.tenant_id, auth.user.id, 'ai_rate_limited', { mode, model });
       return json(res, 429, { error: 'Limite de uso da IA atingido. Tente novamente em alguns minutos.' });
     }
@@ -56,23 +57,23 @@ export default async function handler(req, res) {
       'TEXTO INTERNO (já sanitizado pelo advogado):',
       input
     ].join('\n');
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.15, maxOutputTokens: 1800 } }),
       signal: AbortSignal.timeout(30000)
     });
     const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error('model_error');
+    if (!response.ok) throw new Error(response.status === 429 ? 'provider_limit' : response.status === 404 ? 'provider_model' : 'model_error');
     const output = payload?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
     if (!output) throw new Error('empty_output');
     const latency = Date.now() - started;
     await supabaseFetch('legal_ai_runs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ tenant_id: auth.member.tenant_id, actor_id: auth.user.id, mode, model, input_sha256: inputHash, output_sha256: hash(output), status: 'completed', latency_ms: latency, human_review_required: true }) });
     await writeAudit(auth.member.tenant_id, auth.user.id, 'ai_completed', { mode, model, latency_ms: latency, human_review_required: true });
     return json(res, 200, { ok: true, output, review_required: true, model });
-  } catch {
+  } catch (error) {
     const latency = Date.now() - started;
     await supabaseFetch('legal_ai_runs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ tenant_id: auth.member.tenant_id, actor_id: auth.user.id, mode, model, input_sha256: inputHash, status: 'failed', latency_ms: latency, human_review_required: true }) }).catch(() => {});
     await writeAudit(auth.member.tenant_id, auth.user.id, 'ai_failed', { mode, model });
-    return json(res, 503, { error: 'Não foi possível gerar o rascunho interno. Nenhum dado foi armazenado como prompt ou resposta.' });
+    return json(res, 503, { error: error.message === 'provider_limit' ? 'Cota do provedor de IA atingida. Confira os limites e a cobrança no Google AI Studio.' : error.message === 'provider_model' ? 'O modelo de IA configurado está indisponível. Solicite atualização ao administrador.' : 'Não foi possível gerar o rascunho interno. Nenhum dado foi armazenado como prompt ou resposta.' });
   }
 }

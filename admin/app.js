@@ -32,10 +32,10 @@ async function sbFetch(path, opts) {
     return { data: await response.json(), error: null };
   } catch (error) { return { data: null, error: { message: 'Falha de comunicação com o banco de dados.' } }; }
 }
-function sbSelect(table, order, query) { return sbFetch(table + '?select=*' + (query ? '&' + query : '') + '&order=' + (order || 'created_at.desc')); }
+function sbSelect(table, order, query) { return sbFetch(table + '?select=*&tenant_id=eq.' + encodeURIComponent(currentTenantId) + (query ? '&' + query : '') + '&order=' + (order || 'created_at.desc') + '&limit=1000'); }
 function sbInsert(table, row) { return sbFetch(table, { method: 'POST', body: JSON.stringify(row) }); }
-function sbUpdate(table, id, row) { return sbFetch(table + '?id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(row) }); }
-function sbDelete(table, id) { return sbFetch(table + '?id=eq.' + encodeURIComponent(id), { method: 'DELETE' }); }
+function sbUpdate(table, id, row) { return sbFetch(table + '?tenant_id=eq.' + encodeURIComponent(currentTenantId) + '&id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(row) }); }
+function sbDelete(table, id) { return sbFetch(table + '?tenant_id=eq.' + encodeURIComponent(currentTenantId) + '&id=eq.' + encodeURIComponent(id), { method: 'DELETE' }); }
 
 /* ════════════════════════════════════════════════════════════════
    SCHEMA — define campos de cada tabela
@@ -77,10 +77,11 @@ async function showApp() {
   document.getElementById('app').classList.add('visible');
   loadAllData();
   navigateTo('dashboard');
+  if(authSession.user.user_metadata&&authSession.user.user_metadata.temporary_test_account)toast('Conta de teste: troque a senha em Minha conta antes do uso real.','error');
 }
 
 async function verifyMembershipAndShow() {
-  var membership = await sbFetch('tenant_members?select=tenant_id,role&user_id=eq.' + encodeURIComponent(authSession.user.id) + '&limit=1');
+  var membership = await sbFetch('tenant_members?select=tenant_id,role&user_id=eq.' + encodeURIComponent(authSession.user.id) + '&order=created_at.asc&limit=100');
   if (membership.error || !membership.data || membership.data.length === 0) {
     await _sbClient.auth.signOut(); authSession = null; window.authSession = null;
     var err = document.getElementById('login-error');
@@ -92,8 +93,8 @@ async function verifyMembershipAndShow() {
   showApp();
 }
 function applyRoleVisibility() {
-  document.querySelectorAll('[data-view=\"legal_fees\"]').forEach(function(el) { el.hidden = !['owner','admin','manager'].includes(currentRole); });
-  document.querySelectorAll('[data-view=\"ia_juridica\"]').forEach(function(el) { el.hidden = !['owner','admin','manager','agent'].includes(currentRole); });
+  document.querySelectorAll('[data-view=\"legal_fees\"]').forEach(function(el) { el.hidden = !['owner','admin','manager'].includes(currentRole);el.style.display=el.hidden?'none':''; });
+  document.querySelectorAll('[data-view=\"ia_juridica\"]').forEach(function(el) { el.hidden = !['owner','admin','manager','agent'].includes(currentRole);el.style.display=el.hidden?'none':''; });
 }
 async function initializeAuth() {
   try {
@@ -101,14 +102,17 @@ async function initializeAuth() {
     if (!response.ok) throw new Error('Supabase não configurado. Defina as variáveis de ambiente na Vercel.');
     var config = await response.json(); SB_URL = config.url; SB_KEY = config.key;
     if (!window.supabase || !window.supabase.createClient) throw new Error('Biblioteca de autenticação indisponível.');
-    _sbClient = window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    _sbClient = window.supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+    var fragment = new URLSearchParams(window.location.hash.slice(1));
+    if (fragment.has('access_token') && fragment.has('refresh_token')) {
+      var oauth = await _sbClient.auth.setSession({access_token:fragment.get('access_token'),refresh_token:fragment.get('refresh_token')});
+      history.replaceState(null,document.title,window.location.pathname + window.location.search);
+      if (oauth.error) throw new Error('A sessão Google expirou. Entre novamente.');
+    }
     var result = await _sbClient.auth.getSession(); authSession = result.data.session; window.authSession = authSession;
     if (authSession) await verifyMembershipAndShow();
-    _sbClient.auth.onAuthStateChange(function(_event, session) { authSession=session; window.authSession=session; if(session) setTimeout(verifyMembershipAndShow,0); else { document.getElementById('app').classList.remove('visible'); document.getElementById('login-screen').style.display='flex'; } });
+    _sbClient.auth.onAuthStateChange(function(_event, session) { authSession=session; window.authSession=session; if(session) setTimeout(verifyMembershipAndShow,0); else { store={};currentTenantId=''; document.getElementById('app').classList.remove('visible'); document.getElementById('login-screen').style.display='flex'; } });
   } catch(error) { var el=document.getElementById('login-error'); el.textContent=error.message || 'Falha ao inicializar autenticação.'; el.style.display='block'; }
-}
-if (window.location.hash.includes('access_token=')) {
-  history.replaceState(null, document.title, window.location.pathname + window.location.search);
 }
 document.getElementById('toggle-pass').addEventListener('click', function() {
   var input=document.getElementById('login-pass'), show=document.getElementById('eye-show'), hide=document.getElementById('eye-hide');
@@ -131,10 +135,12 @@ document.getElementById('logout-btn').addEventListener('click', async function()
    ════════════════════════════════════════════════════════════════ */
 function loadAllData() {
   var seen = {};
+  var requestedTenant = currentTenantId;
   Object.keys(VIEWS).forEach(function(key) {
     var v = VIEWS[key];
     if (seen[v.table]) return; seen[v.table] = true;
     sbSelect(v.table, v.order).then(function(res) {
+      if (requestedTenant !== currentTenantId) return;
       store[v.table] = res.data || [];
       updateBadges();
       if (currentView === key || currentView === 'dashboard') renderView(currentView);
@@ -144,7 +150,9 @@ function loadAllData() {
 
 function loadTable(tableName, order) {
   var v = (VIEWS[currentView] && VIEWS[currentView].table === tableName) ? VIEWS[currentView] : findView(tableName);
-  return sbSelect(tableName, order || (v && v.order) || 'created_at.desc', v && v.query).then(function(res) {
+  var requestedTenant = currentTenantId;
+  return sbSelect(tableName, order || (v && v.order) || 'created_at.desc').then(function(res) {
+    if (requestedTenant !== currentTenantId) return [];
     store[tableName] = res.data || [];
     return store[tableName];
   });
@@ -198,13 +206,13 @@ function navigateTo(view) {
   if (view === 'dashboard') {
     addBtn.style.display = 'none';
     document.getElementById('view-title').textContent = 'Dashboard';
-  } else if (view === 'ia_juridica' || view === 'compliance') {
+  } else if (view === 'ia_juridica' || view === 'compliance' || view === 'integrations' || view === 'account') {
     addBtn.style.display = 'none';
-    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : 'Conformidade editorial';
+    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : view === 'integrations' ? 'Google e documentos' : view === 'account' ? 'Minha conta' : 'Conformidade editorial';
   } else {
     var cfg = VIEWS[view];
     if (cfg) {
-      addBtn.style.display = cfg.readOnly ? 'none' : '';
+      addBtn.style.display = cfg.readOnly || currentRole === 'viewer' ? 'none' : '';
       addBtn.onclick = function() { openDrawer(cfg, null); };
       document.getElementById('view-title').textContent = cfg.title;
       currentTable = cfg.table;
@@ -346,22 +354,24 @@ function gcalLink(r) {
 
 async function googleApi(path, options) {
   if (!authSession) throw new Error('Sessão não autenticada.');
-  var response = await fetch(path, Object.assign({ headers: { 'Authorization': 'Bearer ' + authSession.access_token, 'Content-Type': 'application/json' } }, options || {}));
+  var settings = Object.assign({}, options || {});
+  settings.headers = Object.assign({}, settings.headers || {}, { 'Authorization': 'Bearer ' + authSession.access_token, 'X-BP-Tenant-Id': currentTenantId, 'Content-Type': 'application/json' });
+  var response = await fetch(path, settings);
   var data = await response.json().catch(function(){ return {}; });
   if (!response.ok) throw new Error(data.error || 'Não foi possível concluir a integração Google.');
   return data;
 }
 async function connectGoogleCalendar() {
-  try { var data = await googleApi('/api/google/calendar/connect', { method: 'POST', body: '{}' }); window.location.href = data.url; } catch (error) { alert(error.message); }
+  try { var data = await googleApi('/api/google/calendar/connect', { method: 'POST', body: '{}' }); window.location.href = data.url; } catch (error) { toast(error.message,'error'); }
 }
 async function prepareGoogleDrive() {
-  try { var data = await googleApi('/api/google/drive/folder', { method: 'POST', body: '{}' }); window.open(data.webViewLink, '_blank', 'noopener'); } catch (error) { alert(error.message); }
+  try { var data = await googleApi('/api/google/drive/folder', { method: 'POST', body: '{}' }); if(document.getElementById('google-drive-link')){var link=document.getElementById('google-drive-link');link.href=data.webViewLink;link.hidden=false;}toast('Pasta privada do CRM preparada. Abra pelo link no painel.','success'); } catch (error) { toast(error.message,'error'); }
 }
 async function syncGoogleCalendar(id) {
-  try { var data = await googleApi('/api/google/calendar/sync', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }); if (data.htmlLink) window.open(data.htmlLink, '_blank', 'noopener'); else alert('Compromisso sincronizado no Google Agenda.'); } catch (error) { alert(error.message); }
+  try { var data = await googleApi('/api/google/calendar/sync', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }); toast('Compromisso enviado ao Google Agenda (sem anotações sigilosas).','success'); } catch (error) { toast(error.message,'error'); }
 }
 async function syncGoogleContact(id) {
-  try { await googleApi('/api/google/contacts/sync', { method: 'POST', body: JSON.stringify({ customer_id: id }) }); alert('Contato sincronizado no Google Contatos.'); } catch (error) { alert(error.message); }
+  try { await googleApi('/api/google/contacts/sync', { method: 'POST', body: JSON.stringify({ customer_id: id }) }); toast('Contato autorizado sincronizado sem duplicação.','success'); } catch (error) { toast(error.message,'error'); }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -371,6 +381,8 @@ function renderTableView(viewKey) {
   var cfg = VIEWS[viewKey];
   if (!cfg) return '<p style="color:var(--text-3)">Módulo não encontrado.</p>';
   var rows = store[cfg.table] || [];
+  if(cfg.entity==='lead') rows=rows.filter(function(row){return row.status==='lead';});
+  if(cfg.entity==='client') rows=rows.filter(function(row){return row.status!=='lead';});
   var term = (filterText[cfg.table] || '').toLowerCase().trim();
   var cols = cfg.fields.filter(function(f) { return cfg.tableKeys.indexOf(f.key) !== -1; });
 
@@ -407,7 +419,7 @@ function renderTableView(viewKey) {
         if (cfg.table === 'legal_appointments') {
           var cal = gcalLink(r);
           if (cal) calBtn = '<a class="btn btn-outline btn-sm" href="' + cal + '" target="_blank" rel="noopener" title="Adicionar ao Google Calendar" style="text-decoration:none">📅</a>';
-          calendarSyncBtn = '<button class="btn btn-outline btn-sm" data-action="calendar-sync" data-id="' + esc(cfg.table === 'legal_appointments' ? r.id : '') + '" title="Sincronizar com Google Agenda">Sync</button>';
+          calendarSyncBtn = '<button class="btn btn-outline btn-sm" data-action="calendar-sync" data-id="' + esc(cfg.table === 'legal_appointments' ? r.id : '') + '" title="Enviar compromisso operacional ao Google Agenda">Agenda</button>';
         }
         if (cfg.table === 'customers' && cfg.entity === 'client') {
           contactsSyncBtn = '<button class="btn btn-outline btn-sm" data-action="contact-sync" data-id="' + esc(r.id) + '" title="Sincronizar contato com Google Contatos">Contato</button>';
@@ -415,8 +427,8 @@ function renderTableView(viewKey) {
         return '<tr>' + cells
           + '<td><div class="td-actions">'
           + calBtn + calendarSyncBtn + contactsSyncBtn + whatsappBtn
-          + (cfg.readOnly ? '' : '<button class="btn btn-outline btn-sm" data-action="edit" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Editar</button>')
-          + (cfg.readOnly ? '' : '<button class="btn btn-danger btn-sm" data-action="delete" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Excluir</button>')
+          + (cfg.readOnly || currentRole === 'viewer' ? '' : '<button class="btn btn-outline btn-sm" data-action="edit" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Editar</button>')
+          + (cfg.readOnly || !['owner','admin'].includes(currentRole) ? '' : '<button class="btn btn-danger btn-sm" data-action="delete" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Excluir</button>')
           + '</div></td></tr>';
       }).join('');
 
@@ -456,6 +468,11 @@ adminActionRoot.addEventListener('click', function(event) {
   else if (action === 'drive-connect') prepareGoogleDrive();
   else if (action === 'calendar-sync') syncGoogleCalendar(control.getAttribute('data-id'));
   else if (action === 'contact-sync') syncGoogleContact(control.getAttribute('data-id'));
+  else if (action === 'google-refresh') refreshGoogleIntegrations();
+  else if (action === 'google-disconnect') disconnectGoogleIntegration();
+  else if (action === 'drive-upload') uploadGoogleDocument();
+  else if (action === 'change-password') changeAccountPassword();
+  else if (action === 'team-link') linkTeamMember();
 });
 adminActionRoot.addEventListener('input', function(event) {
   var control = event.target.closest('[data-action="search"]');
@@ -468,6 +485,12 @@ function renderView(view) {
     area.innerHTML = renderDashboard();
   } else if (view === 'ia_juridica') {
     area.innerHTML = renderIAJuridica();
+  } else if (view === 'integrations') {
+    area.innerHTML = renderGoogleIntegrations();
+    refreshGoogleIntegrations();
+  } else if (view === 'account') {
+    area.innerHTML = renderAccountSettings()+renderTeamSettings();
+    if(['owner','admin'].includes(currentRole))refreshTeamSettings();
   } else if (view === 'compliance') {
     area.innerHTML = renderCompliance();
   } else if (VIEWS[view]) {
@@ -475,10 +498,10 @@ function renderView(view) {
   }
 }
 
-/* IA jurídica foi desativada nesta entrega. Não enviar chaves de provedores nem dados de casos do browser. */
+/* IA interna: chave e geração somente no backend; entrada sanitizada e revisão humana. */
 function renderIAJuridica(){return '<div class="ia-layout"><div><div class="ia-card"><h3 class="ia-card-title"><span class="ia-dot ia-dot-blue"></span>Assistente interno</h3><p class="ia-hint">A IA apoia a equipe. Ela não atende clientes, não decide estratégia e não recebe dados pessoais, números de processo ou documentos.</p><label class="form-label" for="ia-mode">Tarefa</label><select class="form-select" id="ia-mode"><option value="triage">Triagem operacional</option><option value="summary">Resumo de texto sanitizado</option><option value="deadline_plan">Plano de conferência de prazo</option><option value="internal_draft">Rascunho interno</option></select><label class="form-label" for="ia-input" style="margin-top:12px">Texto interno sem dados pessoais</label><textarea class="form-textarea" id="ia-input" rows="10" maxlength="12000" placeholder="Remova nomes, CPF, telefone, e-mail, número de processo, documentos e informações sigilosas."></textarea><label class="consent" style="margin-top:12px"><input type="checkbox" id="ia-safe"> <span>Confirmei que o texto foi sanitizado e que a resposta será revisada por advogado antes de qualquer uso.</span></label><button class="btn btn-primary" type="button" data-action="run-ai" style="margin-top:14px">Gerar rascunho interno</button><p class="ia-hint" id="ia-feedback"></p></div></div><div class="ia-card"><h3 class="ia-card-title">Resultado</h3><div id="ia-result" class="ia-results-placeholder"><p>O resultado aparecerá aqui com o selo “revisão humana obrigatória”.</p></div></div></div>';}
 function renderCompliance(){var items=['Nome, razão social, CNPJ, inscrições e qualificações confirmados','Texto objetivo, verdadeiro, sóbrio e informativo','Sem promessa de resultado, comparação ou autoengrandecimento','Sem preço, desconto, gratuidade ou oferta agressiva de contratação','Plantão, horários e canais confirmados pela operação real','Fotos, biografias, títulos e especialidades autorizados e comprováveis','Aviso de privacidade, bases legais e canal do controlador preenchidos','Revisão final pelo advogado responsável e, se necessário, consulta ao TED/OAB'];return '<div class="ia-card"><h3 class="ia-card-title">Checklist editorial · Provimento 205/2021</h3><p class="ia-hint">Checklist operacional. Não é parecer jurídico nem certificação automática.</p>'+items.map(function(item,i){return '<label class="consent" style="display:flex;margin:12px 0"><input type="checkbox" data-compliance="'+i+'"> <span>'+esc(item)+'</span></label>';}).join('')+'<div class="ia-card" style="margin-top:18px;background:rgba(185,138,87,.08)"><strong>Estado atual</strong><p class="ia-hint">A publicação só deve ser liberada depois da validação humana dos itens acima. A ferramenta organiza evidências; não substitui a análise do advogado ou do TED/OAB.</p></div></div>';}
-async function runInternalAI(){var mode=document.getElementById('ia-mode').value,input=document.getElementById('ia-input').value.trim(),safe=document.getElementById('ia-safe').checked,feedback=document.getElementById('ia-feedback'),result=document.getElementById('ia-result');if(!safe||input.length<10){feedback.textContent='Confirme a sanitização e informe um texto interno suficiente.';return;}feedback.textContent='Gerando com backend seguro…';result.innerHTML='<div class="ia-loading"><span class="ia-spinner"></span>Processando sem armazenar prompt ou resposta.</div>';try{var response=await fetch('/api/ia',{method:'POST',headers:{Authorization:'Bearer '+authSession.access_token,'Content-Type':'application/json'},body:JSON.stringify({mode:mode,input:input})});var data=await response.json().catch(function(){return{};});if(!response.ok)throw new Error(data.error||'Falha ao gerar.');result.innerHTML='<div class="ia-result-body"><strong style="color:var(--gold)">Rascunho interno · revisão humana obrigatória</strong><p class="ia-strategy-text">'+esc(data.output||'')+'</p></div>';feedback.textContent='Execução registrada sem salvar o texto enviado ou a resposta.';}catch(error){result.innerHTML='<div class="ia-error">'+esc(error.message||'Não foi possível gerar o rascunho.')+'</div>';feedback.textContent='';}}
+async function runInternalAI(){var mode=document.getElementById('ia-mode').value,input=document.getElementById('ia-input').value.trim(),safe=document.getElementById('ia-safe').checked,feedback=document.getElementById('ia-feedback'),result=document.getElementById('ia-result');if(!safe||input.length<10){feedback.textContent='Confirme a sanitização e informe um texto interno suficiente.';return;}feedback.textContent='Gerando com backend seguro…';result.innerHTML='<div class="ia-loading"><span class="ia-spinner"></span>Processando sem armazenar prompt ou resposta.</div>';try{var response=await fetch('/api/ia',{method:'POST',headers:{Authorization:'Bearer '+authSession.access_token,'X-BP-Tenant-Id':currentTenantId,'Content-Type':'application/json'},body:JSON.stringify({mode:mode,input:input})});var data=await response.json().catch(function(){return{};});if(!response.ok)throw new Error(data.error||'Falha ao gerar.');result.innerHTML='<div class="ia-result-body"><strong style="color:var(--gold)">Rascunho interno · revisão humana obrigatória</strong><p class="ia-strategy-text">'+esc(data.output||'')+'</p></div>';feedback.textContent='Execução registrada sem salvar o texto enviado ou a resposta.';}catch(error){result.innerHTML='<div class="ia-error">'+esc(error.message||'Não foi possível gerar o rascunho.')+'</div>';feedback.textContent='';}}
 
 function onSearch(table, val) {
   filterText[table] = val;
@@ -556,6 +579,7 @@ document.getElementById('drawer-overlay').addEventListener('click', function(e) 
 });
 
 function saveDrawer(cfg) {
+  if(currentRole==='viewer'){toast('Seu perfil permite somente leitura.','error');return;}
   var saveBtn = document.getElementById('drawer-save');
   saveBtn.disabled = true;
   saveBtn.textContent = 'Salvando…';
@@ -571,6 +595,8 @@ function saveDrawer(cfg) {
   });
 
   if (!editingId) { payload.tenant_id = currentTenantId; payload.created_by = authSession && authSession.user ? authSession.user.id : null; if (cfg.entity === 'lead') payload.status = 'lead'; if (cfg.entity === 'client' && !payload.status) payload.status = 'active'; }
+  var invalidField=cfg.fields.find(function(f){return f.required&&!payload[f.key];});
+  if(invalidField){saveBtn.disabled=false;saveBtn.textContent='Salvar';toast('Preencha: '+invalidField.label,'error');return;}
   var p = editingId ? sbUpdate(cfg.table, editingId, payload) : sbInsert(cfg.table, payload);
 
   p.then(function(res) {
@@ -597,6 +623,7 @@ function editRecord(table, id) {
 window.editRecord = editRecord;
 
 function deleteRecord(table, id) {
+  if(!['owner','admin'].includes(currentRole)){toast('Exclusão restrita ao administrador.','error');return;}
   var cfg = Object.values(VIEWS).find(function(v) { return v.table === table; });
   openConfirm(
     'Excluir registro',
@@ -615,7 +642,7 @@ function deleteRecord(table, id) {
 }
 window.deleteRecord = deleteRecord;
 
-function openContactLog(customerId){var row=(store.customers||[]).find(function(r){return String(r.id)===String(customerId);});if(!row)return;document.getElementById('drawer-title').textContent='Registrar contato seguro';document.getElementById('drawer-body').innerHTML='<p class="ia-hint">Registre apenas o fato operacional. Não copie mensagens, documentos, nomes de terceiros, números de processo ou dados pessoais.</p><label class="form-label">Direção</label><select class="form-select" id="contact-direction"><option value="outbound">Saída do escritório</option><option value="inbound">Entrada do contato</option><option value="internal">Nota interna</option></select><label class="form-label" style="margin-top:12px">Tipo</label><select class="form-select" id="contact-type"><option value="contact">Contato</option><option value="handoff">Encaminhamento ao advogado</option><option value="callback">Retorno solicitado</option><option value="appointment">Agendamento</option><option value="consent">Consentimento</option><option value="opt_out">Opt-out</option></select><label class="form-label" style="margin-top:12px">Resumo operacional</label><textarea class="form-textarea" id="contact-summary" maxlength="500" rows="4" placeholder="Ex.: retorno solicitado; equipe orientou aguardar contato do advogado."></textarea>';document.getElementById('drawer-overlay').classList.add('open');document.getElementById('drawer-save').onclick=async function(){var summary=document.getElementById('contact-summary').value.trim();if(summary.length<2){toast('Informe um resumo operacional curto.','error');return;}var response=await fetch('/api/contact-events',{method:'POST',headers:{Authorization:'Bearer '+authSession.access_token,'Content-Type':'application/json'},body:JSON.stringify({customer_id:customerId,direction:document.getElementById('contact-direction').value,event_type:document.getElementById('contact-type').value,safe_summary:summary})});var data=await response.json().catch(function(){return{};});if(!response.ok){toast(data.error||'Não foi possível registrar.','error');return;}toast('Contato registrado sem conteúdo de mensagem.','success');closeDrawer();};}
+function openContactLog(customerId){var row=(store.customers||[]).find(function(r){return String(r.id)===String(customerId);});if(!row)return;document.getElementById('drawer-title').textContent='Registrar contato seguro';document.getElementById('drawer-body').innerHTML='<p class="ia-hint">Registre apenas o fato operacional. Não copie mensagens, documentos, nomes de terceiros, números de processo ou dados pessoais.</p><label class="form-label">Direção</label><select class="form-select" id="contact-direction"><option value="outbound">Saída do escritório</option><option value="inbound">Entrada do contato</option><option value="internal">Nota interna</option></select><label class="form-label" style="margin-top:12px">Tipo</label><select class="form-select" id="contact-type"><option value="contact">Contato</option><option value="handoff">Encaminhamento ao advogado</option><option value="callback">Retorno solicitado</option><option value="appointment">Agendamento</option><option value="consent">Consentimento</option><option value="opt_out">Opt-out</option></select><label class="form-label" style="margin-top:12px">Resumo operacional</label><textarea class="form-textarea" id="contact-summary" maxlength="500" rows="4" placeholder="Ex.: retorno solicitado; equipe orientou aguardar contato do advogado."></textarea>';document.getElementById('drawer-overlay').classList.add('open');document.getElementById('drawer-save').onclick=async function(){var summary=document.getElementById('contact-summary').value.trim();if(summary.length<2){toast('Informe um resumo operacional curto.','error');return;}var response=await fetch('/api/contact-events',{method:'POST',headers:{Authorization:'Bearer '+authSession.access_token,'X-BP-Tenant-Id':currentTenantId,'Content-Type':'application/json'},body:JSON.stringify({customer_id:customerId,direction:document.getElementById('contact-direction').value,event_type:document.getElementById('contact-type').value,safe_summary:summary})});var data=await response.json().catch(function(){return{};});if(!response.ok){toast(data.error||'Não foi possível registrar.','error');return;}toast('Contato registrado sem conteúdo de mensagem.','success');closeDrawer();};}
 
 /* ════════════════════════════════════════════════════════════════
    CONFIRM DIALOG
@@ -716,3 +743,99 @@ function svgIcon(name) {
    ════════════════════════════════════════════════════════════════ */
 ['ia_key_claude','ia_key_openai','ia_key_gemini','ia_key_deepseek'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
 initializeAuth();
+
+
+/* Integrações e conta: operações explícitas com estado e instruções visíveis. */
+function renderGoogleIntegrations() {
+  var editable = ['owner','admin','manager','agent'].includes(currentRole);
+  return '<div class="ia-card"><h3 class="ia-card-title">Sua conta Google no escritório</h3>'
+    + '<p class="ia-hint">A conexão é individual. Autorize uma conta profissional em que você possa manter os documentos do escritório. O CRM não importa seu Drive inteiro nem seus contatos pessoais.</p>'
+    + '<p id="google-connection-status" role="status">Consultando a conexão…</p>'
+    + (editable ? '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0"><button class="btn btn-gold" data-action="calendar-connect">Conectar / reconectar Google</button><button class="btn btn-outline" data-action="google-refresh">Atualizar estado</button><button class="btn btn-outline" data-action="google-disconnect">Desconectar do CRM</button></div>' : '')
+    + '<p class="ia-hint">Se o Google indicar acesso bloqueado ou API desativada, o administrador precisa habilitar Calendar API, Drive API e People API no mesmo projeto Google Cloud. Em modo de teste, cadastre o e-mail como usuário de teste. O consentimento precisa ser dado pelo titular da conta.</p></div>'
+    + '<div class="ia-card" style="margin-top:20px"><h3 class="ia-card-title">Agenda e contatos</h3><p class="ia-hint">Em Agenda, use o botão Agenda de cada compromisso para enviar ou atualizar um evento privado de uma hora, sem nomes de clientes e sem anotações. O Google exibe um lembrete 30 minutos antes. Em Clientes, use Contato para enviar nome, telefone e e-mail de um cliente ativo com consentimento autorizado. As sincronizações são do CRM para o Google, acionadas por você; alterações feitas no Google não retornam automaticamente ao CRM.</p></div>'
+    + '<div class="ia-card" style="margin-top:20px"><h3 class="ia-card-title">Documentos no Google Drive</h3><p class="ia-hint">Arquivos privados na pasta criada por este aplicativo, acessíveis somente pela conta Google autorizada e pelas pessoas com quem você decidir compartilhá-los. Não há compartilhamento público automático. PDF, DOCX, JPG, PNG ou TXT até 2 MB. Confira a política do escritório antes de enviar documentos sigilosos.</p>'
+    + (editable ? '<button class="btn btn-outline" data-action="drive-connect">Preparar pasta privada</button> <a id="google-drive-link" class="btn btn-outline" target="_blank" rel="noopener" hidden>Abrir pasta no Drive</a><div style="margin:20px 0"><input id="drive-file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png,.txt"><button class="btn btn-gold" data-action="drive-upload">Enviar documento</button></div>' : '')
+    + '<div id="google-documents" role="status">Conecte o Google para consultar documentos.</div></div>';
+}
+async function refreshGoogleIntegrations() {
+  var status = document.getElementById('google-connection-status');
+  if(!status) return;
+  try {
+    var data = await googleApi('/api/google/calendar/status');
+    if(!document.getElementById('google-connection-status')) return;
+    status.textContent = data.connected ? 'Conectado: '+data.googleEmail+' · Agenda: '+(data.capabilities.calendar?'autorizada':'pendente')+' · Drive: '+(data.capabilities.drive?'autorizado':'pendente')+' · Contatos: '+(data.capabilities.contacts?'autorizados':'pendentes') : 'Não conectado. Clique em Conectar Google e autorize os serviços.';
+    if(data.connected && data.capabilities.drive){
+      var docs=await googleApi('/api/google/drive/files');
+      var target=document.getElementById('google-documents');
+      if(target) target.innerHTML=docs.files.length?docs.files.map(function(file){
+        var href=String(file.webViewLink||'');
+        if(!href.startsWith('https://')) href='https://drive.google.com/file/d/'+encodeURIComponent(file.id)+'/view';
+        return '<p><a href="'+esc(href)+'" target="_blank" rel="noopener" style="text-decoration:underline">'+esc(file.name)+'</a> <small>'+fmtDatetime(file.modifiedTime)+'</small></p>';
+      }).join(''):'Nenhum documento na pasta do aplicativo.';
+    }
+  }catch(error){status.textContent=error.message;}
+}
+async function disconnectGoogleIntegration(){
+  openConfirm('Desconectar conta Google','O CRM deixará de usar sua autorização. Os arquivos e eventos que você já criou continuarão na conta Google. Para revogar completamente a autorização, use também as configurações de segurança da conta Google.',async function(){
+    try{await googleApi('/api/google/calendar/disconnect',{method:'POST',body:'{}'});toast('Conta desconectada do CRM.','success');refreshGoogleIntegrations();}catch(error){toast(error.message,'error');}
+  });
+}
+async function uploadGoogleDocument(){
+  var input=document.getElementById('drive-file');var file=input&&input.files[0];
+  if(!file){toast('Selecione um documento.','error');return;}
+  if(file.size>2*1024*1024){toast('O limite é 2 MB por documento.','error');return;}
+  var button=document.querySelector('[data-action="drive-upload"]');button.disabled=true;button.textContent='Enviando…';
+  try{
+    var encoded=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result).split(',')[1]);};reader.onerror=reject;reader.readAsDataURL(file);});
+    var mime=file.type||(/\.docx$/i.test(file.name)?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':/\.txt$/i.test(file.name)?'text/plain':'application/octet-stream');
+    await googleApi('/api/google/drive/upload',{method:'POST',body:JSON.stringify({name:file.name,mime_type:mime,base64:encoded})});
+    toast('Documento enviado à pasta privada.','success');input.value='';await refreshGoogleIntegrations();
+  }catch(error){toast(error.message,'error');}finally{button.disabled=false;button.textContent='Enviar documento';}
+}
+function renderAccountSettings(){
+  return '<div class="ia-card"><h3 class="ia-card-title">Minha conta</h3><p class="ia-hint">Conta: '+esc(authSession.user.email||'')+' · Papel no escritório: '+esc(currentRole)+'. A senha de teste não deve ser usada em produção. Troque-a por uma senha exclusiva com pelo menos 12 caracteres.</p><label class="form-label" for="new-account-password">Nova senha</label><input class="form-input" type="password" id="new-account-password" autocomplete="new-password" minlength="12"><label class="form-label" for="confirm-account-password" style="margin-top:18px">Confirme a nova senha</label><input class="form-input" type="password" id="confirm-account-password" autocomplete="new-password"><button class="btn btn-gold" data-action="change-password" style="margin-top:20px">Atualizar senha</button><p class="ia-hint" style="margin-top:16px">Não compartilhe a conta master. Cada advogado deve ter um acesso próprio e uma permissão correspondente ao trabalho realizado.</p></div>';
+}
+async function changeAccountPassword(){
+  var password=document.getElementById('new-account-password').value;var confirm=document.getElementById('confirm-account-password').value;
+  if(password.length<12||password!==confirm){toast('Use pelo menos 12 caracteres e confirme a mesma senha.','error');return;}
+  var button=document.querySelector('[data-action="change-password"]');button.disabled=true;
+  try{var result=await _sbClient.auth.updateUser({password:password,data:{temporary_test_account:false}});if(result.error)throw result.error;toast('Senha atualizada. Guarde-a em local seguro.','success');document.getElementById('new-account-password').value='';document.getElementById('confirm-account-password').value='';}
+  catch(error){toast('Não foi possível atualizar a senha. Confira sua sessão.','error');}finally{button.disabled=false;}
+}
+(function addUtilityNavigation(){
+  var nav=document.querySelector('.sidebar-nav');if(!nav)return;
+  [['ia_juridica','IA interna · revisão humana'],['compliance','Conformidade editorial'],['integrations','Google e documentos'],['account','Minha conta / senha']].forEach(function(entry){
+    var button=document.createElement('button');button.type='button';button.className='nav-item';button.dataset.view=entry[0];button.textContent=entry[1];button.addEventListener('click',function(){navigateTo(entry[0]);closeMobileMenu();});nav.appendChild(button);
+  });
+})();
+
+function renderTeamSettings(){
+  if(!['owner','admin'].includes(currentRole))return '';
+  return '<div class="ia-card" style="margin-top:20px"><h3 class="ia-card-title">Equipe do escritório</h3><p class="ia-hint">Para liberar um associado, peça que ele entre uma primeira vez com Google. A conta será registrada, mas o CRM ficará bloqueado até sua liberação abaixo. Informe exatamente o e-mail Google usado. Não conceda acesso a pessoas sem autorização do escritório.</p><label class="form-label" for="team-email">E-mail do associado já registrado</label><input class="form-input" id="team-email" type="email" autocomplete="off"><label class="form-label" for="team-role" style="margin-top:16px">Permissão</label><select class="form-select" id="team-role"><option value="agent">Advogado / associado — operação jurídica</option><option value="viewer">Somente leitura</option><option value="manager">Gestão — inclui honorários</option><option value="admin">Administrador — gestão de acesso</option></select><button class="btn btn-gold" data-action="team-link" style="margin-top:16px">Liberar / atualizar associado</button><div id="team-member-list" style="margin-top:20px" role="status">Carregando equipe…</div><p class="ia-hint">O proprietário não pode ser alterado nesta tela. O isolamento é por escritório; os perfis operacionais têm acesso aos registros jurídicos desse escritório.</p></div>';
+}
+async function refreshTeamSettings(){
+  var target=document.getElementById('team-member-list');if(!target)return;
+  var result=await sbFetch('rpc/legal_team_members',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId})});
+  if(result.error){target.textContent='Não foi possível consultar a equipe.';return;}
+  target.innerHTML=(result.data||[]).map(function(member){return '<p>'+esc(member.email)+' · <strong>'+esc(member.role)+'</strong></p>';}).join('');
+}
+async function linkTeamMember(){
+  var email=document.getElementById('team-email').value.trim();var role=document.getElementById('team-role').value;
+  if(!/^\S+@\S+\.\S+$/.test(email)){toast('Informe o e-mail registrado do associado.','error');return;}
+  openConfirm('Liberar acesso ao escritório','Autorizar '+email+' com o papel '+role+'? A pessoa terá acesso aos dados do escritório permitidos por esse perfil.',async function(){
+    var result=await sbFetch('rpc/legal_link_existing_member',{method:'POST',body:JSON.stringify({p_tenant_id:currentTenantId,p_email:email,p_role:role})});
+    if(result.error){toast(String(result.error.message||'').includes('account_not_registered')?'A conta ainda não existe. Peça ao associado que entre com Google primeiro.':'Não foi possível liberar a conta. Confira sua permissão e o e-mail.','error');return;}
+    toast('Permissão atualizada. O associado pode entrar novamente.','success');refreshTeamSettings();
+  });
+}
+
+async function setupOfficeSelector(memberships){
+  var existing=document.getElementById('office-context-select');if(existing)existing.remove();
+  if(memberships.length<2)return;
+  var names=await sbFetch('tenants?select=id,name&limit=100');
+  var select=document.createElement('select');select.id='office-context-select';select.className='form-select';select.style.maxWidth='270px';select.setAttribute('aria-label','Escritório em uso');
+  memberships.forEach(function(member){var option=document.createElement('option');option.value=member.tenant_id;var tenant=(names.data||[]).find(function(item){return item.id===member.tenant_id;});option.textContent=(tenant?tenant.name:'Escritório '+member.tenant_id.slice(0,8))+' · '+member.role;option.selected=member.tenant_id===currentTenantId;select.appendChild(option);});
+  var topbar=document.querySelector('.topbar');if(topbar)topbar.appendChild(select);
+  select.addEventListener('change',function(){var member=memberships.find(function(item){return item.tenant_id===select.value;});if(!member)return;currentTenantId=member.tenant_id;currentRole=member.role;store={};applyRolePermissions();loadAllData();navigateTo('dashboard');toast('Escritório em uso atualizado.','success');});
+}

@@ -15,11 +15,13 @@
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') throw new Error('Permissão de notificações não concedida.');
       const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:toBytes(config.vapidPublicKey)});
+      const subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:toBytes(config.vapidPublicKey)});
       const response = await fetch('/api/push-subscribe', {method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window.authSession.access_token},body:JSON.stringify({subscription})});
       const result = await response.json().catch(()=>({}));
       if (!response.ok) throw new Error(result.error || 'Não foi possível registrar este dispositivo.');
-      setMessage('Notificações ativadas neste dispositivo.');
+      setMessage('Notificações ativadas neste dispositivo. Prazos devem ser conferidos no CRM e no processo oficial.');
+      const testButton=document.createElement('button');testButton.type='button';testButton.className='nav-item';testButton.textContent='Testar notificação neste dispositivo';button.parentNode.insertBefore(testButton,feedback);
+      testButton.addEventListener('click',async()=>{testButton.disabled=true;try{const r=await fetch('/api/push-send',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+window.authSession.access_token,'X-BP-Tenant-Id':window.currentTenantId},body:JSON.stringify({type:'test',url:'/admin'})});const data=await r.json();setMessage(r.ok&&data.sent?'Teste enviado. Verifique as notificações do dispositivo.':data.error||'Nenhum dispositivo recebeu o teste.');}catch{setMessage('Não foi possível enviar o teste.');}finally{testButton.disabled=false;}});
     } catch (error) { setMessage(error.message || 'Falha ao ativar notificações.'); }
   });
 })();

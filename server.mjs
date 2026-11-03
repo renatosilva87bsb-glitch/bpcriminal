@@ -28,6 +28,9 @@ const apiHandlers = {
   '/api/google/calendar/status': googleCalendarHandler,
   '/api/google/calendar/sync': googleCalendarHandler,
   '/api/google/drive/folder': googleCalendarHandler,
+  '/api/google/drive/files': googleCalendarHandler,
+  '/api/google/drive/upload': googleCalendarHandler,
+  '/api/google/calendar/disconnect': googleCalendarHandler,
   '/api/google/contacts/sync': googleCalendarHandler,
   '/api/news': newsHandler
 };
@@ -35,6 +38,8 @@ const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; chars
 
 function responseAdapter(res) {
   return {
+    get statusCode() { return res.statusCode; },
+    set statusCode(code) { res.statusCode = code; },
     setHeader(name, value) { res.setHeader(name, value); },
     status(code) { res.statusCode = code; return this; },
     json(payload) { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.end(JSON.stringify(payload)); return this; },
@@ -57,7 +62,8 @@ async function readBody(req, maxBytes = 1024 * 1024) {
 
 async function handleApi(req, res, handler) {
   try {
-    req.body = await readBody(req);
+    const limit = new URL(req.url, 'http://localhost').pathname === '/api/google/drive/upload' ? 3 * 1024 * 1024 : 1024 * 1024;
+    req.body = await readBody(req, limit);
     await handler(req, responseAdapter(res));
     if (!res.writableEnded) res.end();
   } catch (error) {
