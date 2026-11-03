@@ -136,3 +136,7 @@ Sirva a pasta com um servidor local para testar navegação e layout. O formulá
 - O CNPJ `00.000.000/0001-00` é um modelo fictício solicitado para visualização e não deve ser tratado como registro válido. Substituir pelo CNPJ real antes de publicar.
 - Não foi anunciado “Plantão Criminal 24h” como serviço confirmado. A página criminal orienta contato em urgências e condiciona a divulgação de atendimento 24 horas à existência de escala e capacidade operacional real.
 - As informações de equipe e OAB devem ser revisadas pelos próprios profissionais; as fotos foram fornecidas pelo solicitante e devem ter autorização de uso institucional confirmada.
+
+## Imagens institucionais de Brasília
+
+A home usa imagens locais do Supremo Tribunal Federal e do Palácio da Justiça do TJDFT para situar visualmente o escritório em Brasília. A imagem do STF é de Rob Sinclair, sob CC BY-SA 2.0; a imagem do TJDFT é de Borowskki, indicada como domínio público na página do arquivo. Os créditos e links de licença aparecem no rodapé e em `research/site-images.md`. O layout informa que as imagens são referências arquitetônicas e não sugerem vínculo institucional, patrocínio ou endosso pelos tribunais.

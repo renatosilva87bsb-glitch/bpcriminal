@@ -61,3 +61,8 @@
 - [x] Configurar secrets de produção sem exibir valores, validar `/api/config` e manter as chaves secretas fora do bundle público.
 - [x] Implementar `/api/google/oauth/start` e `/api/google/oauth/callback` com state anti-CSRF, troca server-side e sessão Supabase.
 - [x] Destacar “Plantão Criminal 24h” em vermelho pulsante, preservando a ressalva de escala operacional e o suporte a `prefers-reduced-motion`.
+
+## Concluído — Imagens institucionais de Brasília
+
+- [x] Substituir os fundos genéricos da home por imagens locais do STF e do TJDFT, com enquadramento responsivo e otimização para web.
+- [x] Exibir créditos, links de licença e aviso de ausência de vínculo institucional no rodapé.
