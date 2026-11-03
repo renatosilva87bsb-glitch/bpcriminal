@@ -70,7 +70,8 @@ var VIEWS = {
   ], tableKeys:['scope','issued_on','expires_on','notarized']},
   legal_contact_events: { title:'Contatos seguros', table:'legal_contact_events', order:'created_at.desc', readOnly:true, fields:[
     {key:'channel',label:'Canal',type:'text'},{key:'direction',label:'Direção',type:'text'},{key:'event_type',label:'Tipo',type:'text'},{key:'safe_summary',label:'Resumo operacional',type:'text'},{key:'created_at',label:'Data',type:'datetime',readOnly:true}
-  ], tableKeys:['channel','direction','event_type','safe_summary','created_at']}
+  ], tableKeys:['channel','direction','event_type','safe_summary','created_at']},
+  legal_tasks: { title:'Tarefas internas', table:'legal_tasks', order:'due_at.asc', fields:[{key:'title',label:'Tarefa',type:'text',required:true},{key:'status',label:'Status',type:'select',options:['todo','in_progress','blocked','done']},{key:'priority',label:'Prioridade',type:'select',options:['low','normal','high','urgent']},{key:'due_at',label:'Prazo',type:'datetime'},{key:'notes',label:'Notas',type:'textarea',inTable:false}], tableKeys:['title','status','priority','due_at']}
 };
 async function showApp() {
   if (document.getElementById('app').classList.contains('visible')) return;
@@ -219,9 +220,9 @@ function navigateTo(view) {
   if (view === 'dashboard') {
     addBtn.style.display = 'none';
     document.getElementById('view-title').textContent = 'Dashboard';
-  } else if (view === 'ia_juridica' || view === 'compliance' || view === 'integrations' || view === 'account' || view === 'team_chat') {
+  } else if (view === 'ia_juridica' || view === 'compliance' || view === 'integrations' || view === 'account' || view === 'team_chat' || view === 'kanban' || view === 'timeline' || view === 'reports') {
     addBtn.style.display = 'none';
-    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : view === 'integrations' ? 'Google e documentos' : view === 'account' ? 'Minha conta' : view === 'team_chat' ? 'Chat da equipe' : 'Conformidade editorial';
+    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : view === 'integrations' ? 'Google e documentos' : view === 'account' ? 'Minha conta' : view === 'team_chat' ? 'Chat da equipe' : view === 'kanban' ? 'Kanban jurídico' : view === 'timeline' ? 'Linha do tempo' : view === 'reports' ? 'Indicadores gerenciais' : 'Conformidade editorial';
   } else {
     var cfg = VIEWS[view];
     if (cfg) {
@@ -470,6 +471,7 @@ function renderTableView(viewKey) {
    RENDER VIEW DISPATCHER
    ════════════════════════════════════════════════════════════════ */
 var adminActionRoot = document.getElementById('view-area');
+adminActionRoot.addEventListener('change', function(event) { var control=event.target.closest('[data-action=kanban-stage]'); if(control) updateKanbanStage(control); var timeline=event.target.closest('#timeline-customer'); if(timeline){var out=document.getElementById('timeline-content');if(out)out.innerHTML=timelineForCustomer(timeline.value);} });
 adminActionRoot.addEventListener('click', function(event) {
   var control = event.target.closest('[data-action]'); if (!control) return;
   var action = control.getAttribute('data-action');
@@ -512,6 +514,9 @@ function renderView(view) {
   } else if (view === 'team_chat') {
     area.innerHTML = renderTeamChat();
     loadTeamChatData();
+  } else if (view === 'kanban') { area.innerHTML = renderKanban();
+  } else if (view === 'timeline') { area.innerHTML = renderTimeline();
+  } else if (view === 'reports') { area.innerHTML = renderReports();
   } else if (view === 'integrations') {
     area.innerHTML = renderGoogleIntegrations();
     refreshGoogleIntegrations();
@@ -524,6 +529,12 @@ function renderView(view) {
     area.innerHTML = renderTableView(view);
   }
 }
+
+function renderKanban(){var leadStages=[['new_lead','Novo lead'],['triage','Triagem'],['consultation','Consulta agendada'],['retained','Contratação'],['active_case','Caso ativo'],['closed','Encerrado']];var caseStages=[['active','Ativo'],['awaiting_judgment','Aguardando decisão'],['appeal','Recurso'],['closed','Encerrado']];function board(title,stages,items,field,table){return '<section class="kanban-board"><h3>'+title+'</h3><div class="kanban-columns">'+stages.map(function(stage){var cards=items.filter(function(item){return (item[field]||'new_lead')===stage[0];});return '<div class="kanban-column" data-stage="'+stage[0]+'"><header>'+stage[1]+' <b>'+cards.length+'</b></header>'+cards.map(function(item){return '<article class="kanban-card" draggable="true"><strong>'+esc(item.full_name||item.title||'Sem título')+'</strong><small>'+esc(item.process_number||item.lead_practice_area||item.court||'')+'</small><select data-action="kanban-stage" data-table="'+table+'" data-id="'+esc(item.id)+'" data-field="'+field+'">'+stages.map(function(x){return '<option value="'+x[0]+'" '+(x[0]===(item[field]||'new_lead')?'selected':'')+'>'+x[1]+'</option>';}).join('')+'</select></article>';}).join('')+'<p class="kanban-empty">'+(cards.length?'':'Nenhum cartão')+'</p></div>';}).join('')+'</div></section>';};var customers=(store.customers||[]).filter(function(x){return x.status==='lead'||x.pipeline_stage;});return '<div class="kanban-wrap">'+board('Leads e triagem',leadStages,customers,'pipeline_stage','customers')+board('Processos',caseStages,store.legal_cases||[],'status','legal_cases')+'</div><p class="ia-hint">Use os cartões para acompanhar cada etapa. Alterações ficam registradas no estado do registro; decisões estratégicas continuam sob responsabilidade do advogado.</p>';}
+async function updateKanbanStage(control){var table=control.getAttribute('data-table'),field=control.getAttribute('data-field'),value=control.value,id=control.getAttribute('data-id'),row={};row[field]=value;var res=await sbUpdate(table,id,row);if(res.error){toast('Não foi possível mover o cartão.','error');return;}var item=(store[table]||[]).find(function(x){return x.id===id});if(item)item[field]=value;renderView('kanban');}
+function renderTimeline(){var customers=(store.customers||[]).filter(function(x){return x.status!=='lead'});var first=customers[0];return '<div class="timeline-toolbar"><label class="form-label">Cliente</label><select class="form-select" id="timeline-customer">'+customers.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.full_name||c.email||'Cliente')+'</option>';}).join('')+'</select></div><div id="timeline-content">'+(first?timelineForCustomer(first.id):'<p class="ia-hint">Cadastre um cliente para visualizar sua linha do tempo.</p>')+'</div>';}
+function timelineForCustomer(id){var c=(store.customers||[]).find(function(x){return x.id===id});if(!c)return '';var events=[];(store.legal_contact_events||[]).filter(function(x){return x.customer_id===id}).forEach(function(x){events.push({at:x.created_at,label:'Contato',text:x.safe_summary||x.event_type});});(store.legal_appointments||[]).filter(function(x){return x.customer_id===id}).forEach(function(x){events.push({at:x.starts_at,label:'Consulta',text:x.title});});(store.legal_cases||[]).filter(function(x){return x.customer_id===id}).forEach(function(x){events.push({at:x.updated_at,label:'Processo',text:x.title});});events.sort(function(a,b){return new Date(b.at)-new Date(a.at)});return '<div class="timeline-card"><h3>'+esc(c.full_name||'Cliente')+'</h3>'+(events.length?events.map(function(e){return '<div class="timeline-event"><time>'+fmtDatetime(e.at)+'</time><strong>'+esc(e.label)+'</strong><p>'+esc(e.text)+'</p></div>';}).join(''):'<p class="ia-hint">Nenhuma atividade vinculada encontrada.</p>')+'</div>';}
+function renderReports(){var leads=store.customers||[],cases=store.legal_cases||[],deadlines=(store.legal_deadlines||[]).filter(function(x){return !x.completed_at}),fees=(store.legal_fees||[]).filter(function(x){return !x.paid_at}),tasks=store.legal_tasks||[];var activeTasks=tasks.filter(function(x){return x.status!=='done'}).length;return '<div class="report-grid"><div class="report-card"><span>Leads</span><strong>'+leads.filter(function(x){return x.status==='lead'}).length+'</strong></div><div class="report-card"><span>Processos ativos</span><strong>'+cases.filter(function(x){return x.status==='active'}).length+'</strong></div><div class="report-card"><span>Prazos abertos</span><strong>'+deadlines.length+'</strong></div><div class="report-card"><span>Honorários em aberto</span><strong>'+fees.length+'</strong></div><div class="report-card"><span>Tarefas pendentes</span><strong>'+activeTasks+'</strong></div></div><div class="ia-card"><h3 class="ia-card-title">Leitura gerencial</h3><p class="ia-hint">Indicadores operacionais do escritório, filtrados pelo escritório atual. Use-os para priorizar atendimento, prazos e capacidade da equipe.</p></div>';}
 
 /* Comunicação interna do escritório: conversas isoladas por tenant. */
 function renderTeamChat(){return '<div class="team-chat-layout"><aside class="team-chat-sidebar"><div class="team-chat-toolbar"><button class="btn btn-gold btn-sm" data-action="team-chat-new">Nova conversa</button><button class="btn btn-outline btn-sm" data-action="team-chat-notify">Ativar toque</button></div><div id="team-chat-list" class="team-chat-list"><p class="ia-hint">Carregando conversas…</p></div></aside><section class="team-chat-panel"><div id="team-chat-header" class="team-chat-header">Selecione uma conversa</div><div id="team-chat-messages" class="team-chat-messages"><p class="ia-hint">As mensagens são privadas entre membros do mesmo escritório.</p></div><div class="team-chat-compose"><input id="team-chat-file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png,.txt"><textarea id="team-chat-input" class="form-textarea" rows="2" maxlength="8000" placeholder="Escreva para a equipe…"></textarea><button class="btn btn-gold" data-action="team-chat-send">Enviar</button></div><p id="team-chat-feedback" class="ia-hint"></p></section></div>';}
@@ -881,7 +892,7 @@ async function changeAccountPassword(){
 }
 (function addUtilityNavigation(){
   var nav=document.querySelector('.sidebar-nav');if(!nav)return;
-  [['team_chat','Chat da equipe'],['ia_juridica','IA interna · revisão humana'],['compliance','Conformidade editorial'],['integrations','Google e documentos'],['account','Minha conta / senha']].forEach(function(entry){
+  [['kanban','Kanban jurídico'],['timeline','Linha do tempo'],['reports','Indicadores'],['team_chat','Chat da equipe'],['ia_juridica','IA interna · revisão humana'],['compliance','Conformidade editorial'],['integrations','Google e documentos'],['account','Minha conta / senha']].forEach(function(entry){
     var button=document.createElement('button');button.type='button';button.className='nav-item';button.dataset.view=entry[0];button.textContent=entry[1];button.addEventListener('click',function(){navigateTo(entry[0]);closeMobileMenu();});nav.appendChild(button);
   });
 })();
