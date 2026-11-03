@@ -254,3 +254,28 @@ html[data-color-scheme="dark"] #app textarea {
   color: var(--text);
   border-color: var(--border);
 }
+
+/* Contraste reforçado no CRM: textos auxiliares continuam discretos, mas legíveis. */
+html[data-color-scheme="dark"] {
+  --text-2: #d0cbc2;
+  --text-3: #a59f95;
+  --border: rgba(255,255,255,.16);
+  --surface-2: #1d1d22;
+  --surface-3: #26262d;
+}
+html[data-color-scheme="dark"] .sidebar-section-label,
+html[data-color-scheme="dark"] .sidebar-footer,
+html[data-color-scheme="dark"] .sidebar-footer button,
+html[data-color-scheme="dark"] .ia-hint,
+html[data-color-scheme="dark"] .form-label,
+html[data-color-scheme="dark"] .topbar-subtitle { color: #b9b3a9; }
+html[data-color-scheme="dark"] .nav-item { color: #d0cbc2; }
+html[data-color-scheme="dark"] .nav-item:hover { color: #fffaf0; }
+html[data-color-scheme="dark"] #app input,
+html[data-color-scheme="dark"] #app select,
+html[data-color-scheme="dark"] #app textarea { border-color: rgba(255,255,255,.2); }
+html[data-color-scheme="dark"] #app input::placeholder,
+html[data-color-scheme="dark"] #app textarea::placeholder { color: #aaa49a; opacity: 1; }
+html[data-color-scheme="dark"] .btn-outline { color: #d0cbc2; border-color: rgba(255,255,255,.24); }
+html[data-color-scheme="dark"] .table-wrap th { color: #c9c2b7; }
+html[data-color-scheme="dark"] .table-wrap td { color: #ddd7cd; }

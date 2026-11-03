@@ -111,7 +111,18 @@ async function initializeAuth() {
       history.replaceState(null,document.title,window.location.pathname + window.location.search);
       if (oauth.error) throw new Error('A sessão Google expirou. Entre novamente.');
     }
-    var result = await _sbClient.auth.getSession(); authSession = result.data.session; window.authSession = authSession;
+    var result = await _sbClient.auth.getSession();
+    if (!result.data.session) {
+      try {
+        var resume = JSON.parse(sessionStorage.getItem('bp_google_session_resume') || 'null');
+        if (resume && resume.access_token && resume.refresh_token) {
+          var restored = await _sbClient.auth.setSession({access_token: resume.access_token, refresh_token: resume.refresh_token});
+          if (!restored.error) result = { data: { session: restored.data.session } };
+        }
+        sessionStorage.removeItem('bp_google_session_resume');
+      } catch (resumeError) { sessionStorage.removeItem('bp_google_session_resume'); }
+    }
+    authSession = result.data.session; window.authSession = authSession;
     if (authSession) await verifyMembershipAndShow();
     _sbClient.auth.onAuthStateChange(function(_event, session) { authSession=session; window.authSession=session; if(session) setTimeout(verifyMembershipAndShow,0); else { store={};currentTenantId=''; document.getElementById('app').classList.remove('visible'); document.getElementById('login-screen').style.display='flex'; } });
   } catch(error) { var el=document.getElementById('login-error'); el.textContent=error.message || 'Falha ao inicializar autenticação.'; el.style.display='block'; }
@@ -364,7 +375,10 @@ async function googleApi(path, options) {
   return data;
 }
 async function connectGoogleCalendar() {
-  try { var data = await googleApi('/api/google/calendar/connect', { method: 'POST', body: '{}' }); window.location.href = data.url; } catch (error) { toast(error.message,'error'); }
+  try {
+    if (authSession) sessionStorage.setItem('bp_google_session_resume', JSON.stringify({access_token: authSession.access_token, refresh_token: authSession.refresh_token}));
+    var data = await googleApi('/api/google/calendar/connect', { method: 'POST', body: '{}' }); window.location.href = data.url;
+  } catch (error) { sessionStorage.removeItem('bp_google_session_resume'); toast(error.message,'error'); }
 }
 async function prepareGoogleDrive() {
   try { var data = await googleApi('/api/google/drive/folder', { method: 'POST', body: '{}' }); if(document.getElementById('google-drive-link')){var link=document.getElementById('google-drive-link');link.href=data.webViewLink;link.hidden=false;}toast('Pasta privada do CRM preparada. Abra pelo link no painel.','success'); } catch (error) { toast(error.message,'error'); }
