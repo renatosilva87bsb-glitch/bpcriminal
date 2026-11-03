@@ -66,6 +66,12 @@ Cadastre em Project > Settings > Environment Variables:
 
 Use ambientes separados para Production, Preview e Development. Não comite valores reais.
 
+## Produção Vercel e Google OAuth
+
+A produção está publicada em `https://bandeiraepaulo.vercel.app`. O projeto Vercel `bandeiraepaulo` usa o mesmo domínio como alias de produção e mantém os secrets de Supabase, Gemini e Google OAuth no ambiente protegido. O painel oferece `/api/google/oauth/start` e `/api/google/oauth/callback`, com state anti-CSRF, troca server-side do código e integração de sessão com Supabase. Tokens não são registrados em logs.
+
+O Plantão Criminal 24h aparece em destaque vermelho pulsante na faixa superior e no hero. A mensagem mantém a ressalva “conforme escala operacional”; o atendimento real deve ser confirmado pelo escritório antes da publicação definitiva.
+
 ## Deploy Vercel
 
 1. Faça commit da pasta do projeto em um repositório Git.

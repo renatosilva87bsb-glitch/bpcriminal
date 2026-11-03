@@ -8,6 +8,7 @@ import iaHandler from './api/ia.js';
 import contactEventsHandler from './api/contact-events.js';
 import pushSubscribeHandler from './api/push-subscribe.js';
 import pushSendHandler from './api/push-send.js';
+import googleOAuthHandler from './api/google-oauth.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const staticRoot = path.join(root, 'public');
@@ -18,7 +19,9 @@ const apiHandlers = {
   '/api/ia': iaHandler,
   '/api/contact-events': contactEventsHandler,
   '/api/push-subscribe': pushSubscribeHandler,
-  '/api/push-send': pushSendHandler
+  '/api/push-send': pushSendHandler,
+  '/api/google/oauth/start': googleOAuthHandler,
+  '/api/google/oauth/callback': googleOAuthHandler
 };
 const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json; charset=utf-8', '.webmanifest':'application/manifest+json', '.svg':'image/svg+xml', '.png':'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.webp':'image/webp', '.ico':'image/x-icon', '.xml':'application/xml', '.txt':'text/plain; charset=utf-8' };
 
@@ -26,7 +29,8 @@ function responseAdapter(res) {
   return {
     setHeader(name, value) { res.setHeader(name, value); },
     status(code) { res.statusCode = code; return this; },
-    json(payload) { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.end(JSON.stringify(payload)); return this; }
+    json(payload) { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.end(JSON.stringify(payload)); return this; },
+    end(body) { res.end(body); }
   };
 }
 

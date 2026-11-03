@@ -45,3 +45,12 @@ button:disabled{opacity:.6;cursor:wait}
 @media(max-width:700px){body{padding-bottom:48px}.utility-inner{align-items:flex-start;padding:8px 0;flex-direction:column;gap:3px}.utility-urgent{font-size:8px}.hero-alert{align-items:flex-start;gap:10px;padding:12px;margin-bottom:24px}.hero-alert strong{font-size:13px}.hero-alert small{font-size:9px;max-width:205px}.hero-alert a{font-size:9px;margin-left:auto;margin-top:2px}.hero-actions{align-items:stretch}.hero-actions .button{flex:1;min-width:145px}.hero-actions .text-link{align-self:center}.urgent-contact-section{padding:64px 0 88px}.urgent-contact-inner{grid-template-columns:1fr;gap:30px}.urgent-contact-actions{gap:9px}.urgent-contact-actions .button{flex:1;min-width:185px;font-size:10px}.mobile-call-bar{position:fixed;display:grid;grid-template-columns:1fr 1fr;bottom:0;left:0;right:0;z-index:97;background:#101c21;box-shadow:0 -5px 20px rgba(16,28,33,.18)}.mobile-call-bar a{display:flex;align-items:center;justify-content:center;gap:7px;color:#f7f4ec;min-height:48px;font-size:10px;letter-spacing:.08em;text-transform:uppercase}.mobile-call-bar a:first-child{background:#b98a57;color:#17242b}.mobile-call-bar a+ a{border-left:1px solid rgba(255,255,255,.12)}.whatsapp-float{bottom:78px}}
 
 @media(max-width:700px){.mobile-call-bar ~ .whatsapp-float{display:none}}
+
+/* Plantão Criminal 24h — destaque de emergência solicitado pelo escritório. */
+.emergency-pulse{color:#ffe8e6;font-weight:700}
+.emergency-pulse i{background:#ff5a52!important;box-shadow:0 0 0 0 rgba(255,90,82,.7);animation:emergency-dot 1.35s ease-in-out infinite}
+.hero-alert-emergency{border-color:#ff6b61!important;box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28);animation:emergency-card 1.8s ease-in-out infinite}
+.hero-alert-emergency strong{color:#ffe3e0}
+@keyframes emergency-dot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,90,82,.75)}50%{opacity:.6;box-shadow:0 0 0 8px rgba(255,90,82,0)}}
+@keyframes emergency-card{0%,100%{box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28)}50%{box-shadow:0 0 0 2px rgba(255,107,97,.48),0 0 34px rgba(196,43,34,.5)}}
+@media(prefers-reduced-motion:reduce){.emergency-pulse i,.hero-alert-emergency{animation:none}}

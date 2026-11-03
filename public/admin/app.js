@@ -107,6 +107,9 @@ async function initializeAuth() {
     _sbClient.auth.onAuthStateChange(function(_event, session) { authSession=session; window.authSession=session; if(session) setTimeout(verifyMembershipAndShow,0); else { document.getElementById('app').classList.remove('visible'); document.getElementById('login-screen').style.display='flex'; } });
   } catch(error) { var el=document.getElementById('login-error'); el.textContent=error.message || 'Falha ao inicializar autenticação.'; el.style.display='block'; }
 }
+if (window.location.hash.includes('access_token=')) {
+  history.replaceState(null, document.title, window.location.pathname + window.location.search);
+}
 document.getElementById('toggle-pass').addEventListener('click', function() {
   var input=document.getElementById('login-pass'), show=document.getElementById('eye-show'), hide=document.getElementById('eye-hide');
   if(input.type==='password'){input.type='text';show.style.display='none';hide.style.display='';this.setAttribute('aria-label','Ocultar senha');}

@@ -54,3 +54,10 @@
 - [ ] Criar o primeiro tenant, o usuário owner e os membros do escritório no Supabase Auth/`tenant_members`.
 - [ ] Validar retenção, controle de acesso e exportação/eliminação de dados com o advogado responsável e o encarregado de proteção de dados.
 - [ ] Validar presencialmente todas as afirmações institucionais, dados de OAB/CNPJ, autorização de fotografias, capacidade real do Plantão Criminal 24h e versão final dos textos com o responsável ou TED/OAB competente.
+
+## Concluído — Publicação, OAuth e plantão
+
+- [x] Criar o projeto Vercel `bandeiraepaulo`, publicar em produção e associar `https://bandeiraepaulo.vercel.app` como alias.
+- [x] Configurar secrets de produção sem exibir valores, validar `/api/config` e manter as chaves secretas fora do bundle público.
+- [x] Implementar `/api/google/oauth/start` e `/api/google/oauth/callback` com state anti-CSRF, troca server-side e sessão Supabase.
+- [x] Destacar “Plantão Criminal 24h” em vermelho pulsante, preservando a ressalva de escala operacional e o suporte a `prefers-reduced-motion`.
