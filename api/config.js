@@ -4,5 +4,5 @@ export default function handler(req, res) {
   const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '';
   if (!url || !key) return res.status(503).json({ error: 'Supabase ainda não foi configurado.' });
   res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
-  return res.status(200).json({ url, key, vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '' });
+  return res.status(200).json({ url, key, vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '', internalAiEnabled: Boolean(process.env.GEMINI_API_KEY) });
 }

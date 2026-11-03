@@ -20,11 +20,11 @@ export default async function handler(req, res) {
     if (!sub?.endpoint || typeof sub.endpoint !== 'string' || sub.endpoint.length > 2048 || !sub.keys?.p256dh || !sub.keys?.auth) return json(res,400,{error:'Inscrição push inválida.'});
     const headers = { apikey: secret, Authorization: secret.startsWith('sb_secret_') ? undefined : `Bearer ${secret}`, 'Content-Type':'application/json' };
     if (!headers.Authorization) delete headers.Authorization;
-    const membershipResponse = await fetch(`${url.replace(/\/$/,'')}/rest/v1/firm_memberships?select=firm_id&user_id=eq.${encodeURIComponent(user.id)}&is_active=eq.true&limit=1`, {headers,signal:AbortSignal.timeout(7000)});
+    const membershipResponse = await fetch(`${url.replace(/\/$/,'')}/rest/v1/tenant_members?select=tenant_id&user_id=eq.${encodeURIComponent(user.id)}&limit=1`, {headers,signal:AbortSignal.timeout(7000)});
     if (!membershipResponse.ok) return json(res,503,{error:'Não foi possível validar o vínculo institucional.'});
     const memberships = await membershipResponse.json();
     if (!memberships.length) return json(res,403,{error:'Usuário sem vínculo ativo com o escritório.'});
-    const saved = await fetch(`${url.replace(/\/$/,'')}/rest/v1/push_subscriptions?on_conflict=endpoint`, {method:'POST',headers:{...headers,Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({firm_id:memberships[0].firm_id,user_id:user.id,endpoint:sub.endpoint,p256dh:sub.keys.p256dh,auth_secret:sub.keys.auth,updated_at:new Date().toISOString()}),signal:AbortSignal.timeout(7000)});
+    const saved = await fetch(`${url.replace(/\/$/,'')}/rest/v1/push_subscriptions?on_conflict=endpoint`, {method:'POST',headers:{...headers,Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({tenant_id:memberships[0].tenant_id,user_id:user.id,endpoint:sub.endpoint,p256dh:sub.keys.p256dh,auth_secret:sub.keys.auth,updated_at:new Date().toISOString()}),signal:AbortSignal.timeout(7000)});
     if (!saved.ok) return json(res,503,{error:'Não foi possível salvar a inscrição de notificações.'});
     return json(res,201,{ok:true});
   } catch { return json(res,400,{error:'Solicitação de inscrição inválida.'}); }

@@ -36,3 +36,21 @@
 - [ ] Configurar Supabase, secrets do endpoint de leads, domínio e canal oficial de privacidade antes de produção.
 - [ ] Confirmar escala e capacidade operacional do Plantão Criminal 24h em todos os períodos anunciados.
 - [ ] Confirmar autorização de uso institucional das fotografias e revisar textos conforme as regras éticas aplicáveis à publicidade da advocacia.
+
+
+## Concluído — CRM jurídico interno e segurança operacional
+
+- [x] Reaproveitar o Supabase conectado com isolamento por `tenant_id`, permissões `owner`, `admin`, `manager`, `agent` e `viewer`, sem criar um segundo modelo de escritório.
+- [x] Integrar leads públicos diretamente a `customers`, com status `lead`, área, urgência, consentimento e `lead_request_id` idempotente.
+- [x] Entregar módulos internos para processos, prazos, agenda, movimentações, honorários e procurações, com RLS por escritório e edição restrita a perfis operacionais.
+- [x] Entregar histórico de contato via `legal_contact_events` com canal, direção, tipo e resumo operacional; a interface rejeita conteúdo de mensagens, documentos e dados sigilosos.
+- [x] Entregar IA exclusivamente interna com autenticação, rate limit por usuário/tenant, bloqueio de dados sensíveis, backend Gemini, logs sem prompt/resposta e revisão humana obrigatória.
+- [x] Entregar checklist editorial interno baseado no Provimento 205/2021, explicitamente sem certificação automática ou substituição da revisão do advogado/TED.
+- [x] Registrar migrações SQL no projeto e manter scripts de sintaxe/testes executáveis.
+
+## Pendente antes de ativar o CRM em produção
+
+- [ ] Configurar no ambiente server-side `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` e `GEMINI_API_KEY`; nunca colocar `SUPABASE_SECRET_KEY` ou `GEMINI_API_KEY` no navegador.
+- [ ] Criar o primeiro tenant, o usuário owner e os membros do escritório no Supabase Auth/`tenant_members`.
+- [ ] Validar retenção, controle de acesso e exportação/eliminação de dados com o advogado responsável e o encarregado de proteção de dados.
+- [ ] Validar presencialmente todas as afirmações institucionais, dados de OAB/CNPJ, autorização de fotografias, capacidade real do Plantão Criminal 24h e versão final dos textos com o responsável ou TED/OAB competente.

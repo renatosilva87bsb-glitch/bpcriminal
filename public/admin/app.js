@@ -3,6 +3,8 @@ var SB_URL = '';
 var SB_KEY = '';
 var _sbClient = null;
 var authSession = null;
+var currentTenantId = '';
+var currentRole = 'viewer';
 window.authSession = null;
 
 /* ════════════════════════════════════════════════════════════════
@@ -30,7 +32,7 @@ async function sbFetch(path, opts) {
     return { data: await response.json(), error: null };
   } catch (error) { return { data: null, error: { message: 'Falha de comunicação com o banco de dados.' } }; }
 }
-function sbSelect(table, order) { return sbFetch(table + '?select=*&order=' + (order || 'created_at.desc')); }
+function sbSelect(table, order, query) { return sbFetch(table + '?select=*' + (query ? '&' + query : '') + '&order=' + (order || 'created_at.desc')); }
 function sbInsert(table, row) { return sbFetch(table, { method: 'POST', body: JSON.stringify(row) }); }
 function sbUpdate(table, id, row) { return sbFetch(table + '?id=eq.' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(row) }); }
 function sbDelete(table, id) { return sbFetch(table + '?id=eq.' + encodeURIComponent(id), { method: 'DELETE' }); }
@@ -39,136 +41,36 @@ function sbDelete(table, id) { return sbFetch(table + '?id=eq.' + encodeURICompo
    SCHEMA — define campos de cada tabela
    ════════════════════════════════════════════════════════════════ */
 var VIEWS = {
-  leads: {
-    title: 'Leads / Triagem',
-    table: 'leads',
-    order: 'created_at.desc',
-    fields: [
-      { key: 'name',       label: 'Nome',         type: 'text',     required: true },
-      { key: 'phone',      label: 'Telefone',      type: 'text' },
-      { key: 'email',      label: 'E-mail',        type: 'text' },
-      { key: 'practice_area', label: 'Área de atuação', type: 'text' },
-      { key: 'urgency',    label: 'Urgência',      type: 'select', options: ['urgent','priority','routine'] },
-      { key: 'status',     label: 'Status',        type: 'select', options: ['Novo','Contatado','Convertido','Descartado'] },
-      { key: 'notes',      label: 'Observações',   type: 'textarea', inTable: false },
-      { key: 'created_at', label: 'Data',          type: 'datetime', inTable: true, readOnly: true }
-    ],
-    tableKeys: ['name','phone','practice_area','urgency','status','created_at']
-  },
-  clients: {
-    title: 'Clientes',
-    table: 'clients',
-    order: 'name.asc',
-    fields: [
-      { key: 'name',         label: 'Nome completo',  type: 'text', required: true },
-      { key: 'cpf',          label: 'CPF',             type: 'text' },
-      { key: 'phone',        label: 'Telefone',        type: 'text' },
-      { key: 'email',        label: 'E-mail',          type: 'text' },
-      { key: 'address',      label: 'Endereço',        type: 'text', inTable: false },
-      { key: 'date_of_birth',label: 'Data de nasc.',   type: 'date', inTable: false },
-      { key: 'status',       label: 'Status',          type: 'select', options: ['Ativo','Inativo','Prospecto'] },
-      { key: 'notes',        label: 'Observações',     type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['name','cpf','phone','email','status']
-  },
-  appointments: {
-    title: 'Consultas / Agenda',
-    table: 'appointments',
-    order: 'date_time.asc',
-    fields: [
-      { key: 'client_name',  label: 'Cliente',         type: 'text', required: true },
-      { key: 'lawyer',       label: 'Advogado',        type: 'text' },
-      { key: 'date_time',    label: 'Data e hora',     type: 'datetime', required: true },
-      { key: 'type',         label: 'Tipo',            type: 'select', options: ['Consulta inicial','Retorno','Urgência','Videoconferência'] },
-      { key: 'status',       label: 'Status',          type: 'select', options: ['Agendado','Confirmado','Realizado','Cancelado'] },
-      { key: 'location',     label: 'Local',           type: 'text' },
-      { key: 'notes',        label: 'Observações',     type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['client_name','lawyer','date_time','type','status']
-  },
-  processes: {
-    title: 'Processos',
-    table: 'processes',
-    order: 'created_at.desc',
-    fields: [
-      { key: 'process_number', label: 'Nº do Processo',  type: 'text', required: true },
-      { key: 'client_name',    label: 'Cliente',          type: 'text', required: true },
-      { key: 'crime',          label: 'Crime/Delito',     type: 'text' },
-      { key: 'court',          label: 'Vara / Tribunal',  type: 'text' },
-      { key: 'judge',          label: 'Juiz(a)',          type: 'text' },
-      { key: 'lawyer',         label: 'Advogado resp.',   type: 'text' },
-      { key: 'status',         label: 'Status',           type: 'select', options: ['Ativo','Aguardando julgamento','Encerrado','Recurso','Arquivado'] },
-      { key: 'phase',          label: 'Fase',             type: 'select', options: ['Inquérito','Denúncia','Instrução','Alegações finais','Sentença','Recurso','Execução'] },
-      { key: 'open_date',      label: 'Data abertura',    type: 'date', inTable: false },
-      { key: 'notes',          label: 'Observações',      type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['process_number','client_name','crime','court','lawyer','status']
-  },
-  deadlines: {
-    title: 'Prazos',
-    table: 'deadlines',
-    order: 'due_date.asc',
-    fields: [
-      { key: 'title',          label: 'Descrição',        type: 'text', required: true },
-      { key: 'process_number', label: 'Nº do Processo',   type: 'text' },
-      { key: 'client_name',    label: 'Cliente',          type: 'text' },
-      { key: 'lawyer',         label: 'Responsável',      type: 'text' },
-      { key: 'due_date',       label: 'Vencimento',       type: 'date', required: true },
-      { key: 'type',           label: 'Tipo',             type: 'select', options: ['Prazo processual','Prazo legal','Audiência','Outros'] },
-      { key: 'done',           label: 'Concluído',        type: 'checkbox' },
-      { key: 'notes',          label: 'Observações',      type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['title','process_number','client_name','lawyer','due_date','done']
-  },
-  fees: {
-    title: 'Honorários',
-    table: 'fees',
-    order: 'created_at.desc',
-    fields: [
-      { key: 'client_name',   label: 'Cliente',            type: 'text', required: true },
-      { key: 'process_number',label: 'Nº do Processo',     type: 'text' },
-      { key: 'description',   label: 'Descrição',          type: 'text' },
-      { key: 'amount',        label: 'Valor (R$)',          type: 'number', required: true },
-      { key: 'due_date',      label: 'Vencimento',         type: 'date' },
-      { key: 'paid',          label: 'Pago',               type: 'checkbox' },
-      { key: 'paid_date',     label: 'Data pagamento',     type: 'date' },
-      { key: 'payment_method',label: 'Forma',              type: 'select', options: ['PIX','TED','Boleto','Dinheiro','Cartão'] },
-      { key: 'notes',         label: 'Observações',        type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['client_name','description','amount','due_date','paid','payment_method']
-  },
-  powers_of_attorney: {
-    title: 'Procurações',
-    table: 'powers_of_attorney',
-    order: 'created_at.desc',
-    fields: [
-      { key: 'client_name',  label: 'Cliente',           type: 'text', required: true },
-      { key: 'lawyer',       label: 'Advogado',          type: 'text' },
-      { key: 'scope',        label: 'Poderes',           type: 'select', options: ['Ad judicia','Ad negocia','Plenos','Especiais'] },
-      { key: 'issued_date',  label: 'Data emissão',      type: 'date' },
-      { key: 'expiry_date',  label: 'Validade',          type: 'date' },
-      { key: 'notarized',    label: 'Reconhecida firma', type: 'checkbox' },
-      { key: 'notes',        label: 'Observações',       type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['client_name','lawyer','scope','issued_date','expiry_date','notarized']
-  },
-  case_movements: {
-    title: 'Movimentações Processuais',
-    table: 'case_movements',
-    order: 'date.desc',
-    fields: [
-      { key: 'process_number', label: 'Nº do Processo', type: 'text', required: true },
-      { key: 'client_name',    label: 'Cliente',        type: 'text' },
-      { key: 'date',           label: 'Data',           type: 'date', required: true },
-      { key: 'type',           label: 'Tipo',           type: 'select', options: ['Despacho','Decisão','Sentença','Acórdão','Citação','Intimação','Juntada','Outros'] },
-      { key: 'description',    label: 'Descrição',      type: 'text', required: true },
-      { key: 'lawyer',         label: 'Advogado resp.', type: 'text' },
-      { key: 'notes',          label: 'Observações',    type: 'textarea', inTable: false }
-    ],
-    tableKeys: ['process_number','date','type','description','lawyer']
-  }
+  leads: { title:'Leads / Triagem', table:'customers', query:'status=eq.lead', order:'created_at.desc', entity:'lead', fields:[
+    {key:'full_name',label:'Nome',type:'text',required:true},{key:'phone_e164',label:'Telefone',type:'text'},{key:'email',label:'E-mail',type:'text'},
+    {key:'lead_practice_area',label:'Área informada',type:'text'},{key:'lead_urgency',label:'Urgência',type:'select',options:['urgent','priority','routine']},{key:'status',label:'Status',type:'select',options:['lead','active','inactive','blocked']},{key:'created_at',label:'Data',type:'datetime',readOnly:true}
+  ], tableKeys:['full_name','phone_e164','lead_practice_area','lead_urgency','status','created_at']},
+  clients: { title:'Clientes', table:'customers', query:'status=in.(active,inactive,blocked)', order:'full_name.asc', entity:'client', fields:[
+    {key:'full_name',label:'Nome completo',type:'text',required:true},{key:'phone_e164',label:'Telefone',type:'text'},{key:'email',label:'E-mail',type:'text'},
+    {key:'status',label:'Status',type:'select',options:['active','inactive','blocked']},{key:'consent_status',label:'Consentimento',type:'select',options:['unknown','opted_in','opted_out']},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['full_name','phone_e164','email','status','consent_status']},
+  appointments: { title:'Agenda', table:'legal_appointments', order:'starts_at.asc', fields:[
+    {key:'title',label:'Título',type:'text',required:true},{key:'starts_at',label:'Data e hora',type:'datetime',required:true},{key:'kind',label:'Tipo',type:'select',options:['initial_consultation','follow_up','urgency','video','hearing','other']},{key:'status',label:'Status',type:'select',options:['scheduled','confirmed','completed','cancelled']},{key:'location',label:'Local',type:'text'},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['title','starts_at','kind','status','location']},
+  legal_cases: { title:'Processos', table:'legal_cases', order:'updated_at.desc', fields:[
+    {key:'title',label:'Caso',type:'text',required:true},{key:'process_number',label:'Nº do processo',type:'text'},{key:'crime',label:'Crime/Delito',type:'text'},{key:'court',label:'Vara / Tribunal',type:'text'},{key:'status',label:'Status',type:'select',options:['active','awaiting_judgment','closed','appeal','archived']},{key:'phase',label:'Fase',type:'select',options:['investigation','indictment','instruction','closing_arguments','sentence','appeal','execution']},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['title','process_number','crime','court','status','phase']},
+  legal_deadlines: { title:'Prazos', table:'legal_deadlines', order:'due_at.asc', fields:[
+    {key:'title',label:'Descrição',type:'text',required:true},{key:'due_at',label:'Vencimento',type:'datetime',required:true},{key:'kind',label:'Tipo',type:'select',options:['processual','legal','hearing','other']},{key:'completed_at',label:'Concluído em',type:'datetime'},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['title','due_at','kind','completed_at']},
+  legal_case_movements: { title:'Movimentações', table:'legal_case_movements', order:'moved_on.desc', fields:[
+    {key:'process_number',label:'Nº do processo',type:'text'},{key:'moved_on',label:'Data',type:'date',required:true},{key:'kind',label:'Tipo',type:'select',options:['order','decision','sentence','judgment','service','filing','citation','other']},{key:'description',label:'Descrição',type:'text',required:true},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['process_number','moved_on','kind','description']},
+  legal_fees: { title:'Honorários', table:'legal_fees', order:'created_at.desc', fields:[
+    {key:'description',label:'Descrição',type:'text',required:true},{key:'amount_cents',label:'Valor (centavos)',type:'number',required:true},{key:'due_on',label:'Vencimento',type:'date'},{key:'paid_at',label:'Pago em',type:'datetime'},{key:'payment_method',label:'Forma',type:'select',options:['pix','ted','boleto','cash','card','other']},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['description','amount_cents','due_on','paid_at','payment_method']},
+  legal_powers_of_attorney: { title:'Procurações', table:'legal_powers_of_attorney', order:'created_at.desc', fields:[
+    {key:'scope',label:'Poderes',type:'select',options:['ad_judicia','ad_negocia','full','special']},{key:'issued_on',label:'Emissão',type:'date'},{key:'expires_on',label:'Validade',type:'date'},{key:'notarized',label:'Firma reconhecida',type:'checkbox'},{key:'notes',label:'Observações',type:'textarea',inTable:false}
+  ], tableKeys:['scope','issued_on','expires_on','notarized']},
+  legal_contact_events: { title:'Contatos seguros', table:'legal_contact_events', order:'created_at.desc', readOnly:true, fields:[
+    {key:'channel',label:'Canal',type:'text'},{key:'direction',label:'Direção',type:'text'},{key:'event_type',label:'Tipo',type:'text'},{key:'safe_summary',label:'Resumo operacional',type:'text'},{key:'created_at',label:'Data',type:'datetime',readOnly:true}
+  ], tableKeys:['channel','direction','event_type','safe_summary','created_at']}
 };
-
 async function showApp() {
   if (document.getElementById('app').classList.contains('visible')) return;
   document.getElementById('login-screen').style.display = 'none';
@@ -178,14 +80,20 @@ async function showApp() {
 }
 
 async function verifyMembershipAndShow() {
-  var membership = await sbFetch('firm_memberships?select=id&limit=1');
+  var membership = await sbFetch('tenant_members?select=tenant_id,role&user_id=eq.' + encodeURIComponent(authSession.user.id) + '&limit=1');
   if (membership.error || !membership.data || membership.data.length === 0) {
     await _sbClient.auth.signOut(); authSession = null; window.authSession = null;
     var err = document.getElementById('login-error');
     err.textContent = 'Conta sem vínculo ativo com um escritório. Solicite a liberação ao administrador.'; err.style.display = 'block';
     document.getElementById('login-screen').style.display = 'flex'; document.getElementById('app').classList.remove('visible'); return;
   }
+  currentTenantId = membership.data[0].tenant_id; currentRole = membership.data[0].role || 'viewer';
+  applyRoleVisibility();
   showApp();
+}
+function applyRoleVisibility() {
+  document.querySelectorAll('[data-view=\"legal_fees\"]').forEach(function(el) { el.hidden = !['owner','admin','manager'].includes(currentRole); });
+  document.querySelectorAll('[data-view=\"ia_juridica\"]').forEach(function(el) { el.hidden = !['owner','admin','manager','agent'].includes(currentRole); });
 }
 async function initializeAuth() {
   try {
@@ -219,8 +127,10 @@ document.getElementById('logout-btn').addEventListener('click', async function()
    DATA LOADING
    ════════════════════════════════════════════════════════════════ */
 function loadAllData() {
+  var seen = {};
   Object.keys(VIEWS).forEach(function(key) {
     var v = VIEWS[key];
+    if (seen[v.table]) return; seen[v.table] = true;
     sbSelect(v.table, v.order).then(function(res) {
       store[v.table] = res.data || [];
       updateBadges();
@@ -230,8 +140,8 @@ function loadAllData() {
 }
 
 function loadTable(tableName, order) {
-  var v = findView(tableName);
-  return sbSelect(tableName, order || (v && v.order) || 'created_at.desc').then(function(res) {
+  var v = (VIEWS[currentView] && VIEWS[currentView].table === tableName) ? VIEWS[currentView] : findView(tableName);
+  return sbSelect(tableName, order || (v && v.order) || 'created_at.desc', v && v.query).then(function(res) {
     store[tableName] = res.data || [];
     return store[tableName];
   });
@@ -242,25 +152,25 @@ function findView(tableName) {
 }
 
 function updateBadges() {
-  var leads = store['leads'] || [];
-  var newLeads = leads.filter(function(r) { return r.status === 'Novo' || !r.status; }).length;
+  var leads = store['customers'] || [];
+  var newLeads = leads.filter(function(r) { return r.status === 'lead'; }).length;
   var badge = document.getElementById('badge-leads');
   if (badge) { badge.textContent = newLeads > 0 ? newLeads : ''; badge.style.display = newLeads > 0 ? '' : 'none'; }
 
   var today = new Date(); today.setHours(0,0,0,0);
   var tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
-  var appts = (store['appointments'] || []).filter(function(r) {
-    if (r.status === 'Cancelado' || r.status === 'Realizado') return false;
-    var d = new Date(r.date_time);
+  var appts = (store['legal_appointments'] || []).filter(function(r) {
+    if (r.status === 'cancelled' || r.status === 'completed') return false;
+    var d = new Date(r.starts_at);
     return d >= today && d < new Date(today.getTime() + 7*86400000);
   });
   var ab = document.getElementById('badge-appts');
   if (ab) { ab.textContent = appts.length > 0 ? appts.length : ''; ab.style.display = appts.length > 0 ? '' : 'none'; }
 
-  var deadlines = (store['deadlines'] || []).filter(function(r) {
-    if (r.done) return false;
-    var d = new Date(r.due_date + 'T00:00:00');
-    return d <= tomorrow;
+  var deadlines = (store['legal_deadlines'] || []).filter(function(r) {
+    if (r.completed_at) return false;
+    var d = new Date(r.due_at);
+    return d <= new Date(today.getTime() + 48*3600000);
   });
   var db = document.getElementById('badge-deadlines');
   if (db) { db.textContent = deadlines.length > 0 ? deadlines.length : ''; db.style.display = deadlines.length > 0 ? '' : 'none'; }
@@ -285,13 +195,13 @@ function navigateTo(view) {
   if (view === 'dashboard') {
     addBtn.style.display = 'none';
     document.getElementById('view-title').textContent = 'Dashboard';
-  } else if (view === 'ia_juridica') {
+  } else if (view === 'ia_juridica' || view === 'compliance') {
     addBtn.style.display = 'none';
-    document.getElementById('view-title').textContent = 'IA Jurídica';
+    document.getElementById('view-title').textContent = view === 'ia_juridica' ? 'IA Jurídica' : 'Conformidade editorial';
   } else {
     var cfg = VIEWS[view];
     if (cfg) {
-      addBtn.style.display = '';
+      addBtn.style.display = cfg.readOnly ? 'none' : '';
       addBtn.onclick = function() { openDrawer(cfg, null); };
       document.getElementById('view-title').textContent = cfg.title;
       currentTable = cfg.table;
@@ -308,56 +218,56 @@ function navigateTo(view) {
    RENDER DASHBOARD
    ════════════════════════════════════════════════════════════════ */
 function renderDashboard() {
-  var leads     = store['leads'] || [];
-  var clients   = store['clients'] || [];
-  var appts     = store['appointments'] || [];
-  var procs     = store['processes'] || [];
-  var deadlines = store['deadlines'] || [];
-  var fees      = store['fees'] || [];
+  var leads     = store['customers'] || [];
+  var clients   = store['customers'] || [];
+  var appts     = store['legal_appointments'] || [];
+  var procs     = store['legal_cases'] || [];
+  var deadlines = store['legal_deadlines'] || [];
+  var fees      = store['legal_fees'] || [];
 
   var today = new Date(); today.setHours(0,0,0,0);
   var tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
 
-  var newLeads   = leads.filter(function(r) { return r.status === 'Novo' || !r.status; }).length;
+  var newLeads   = leads.filter(function(r) { return r.status === 'lead'; }).length;
   var todayAppts = appts.filter(function(r) {
-    var d = new Date(r.date_time); d.setHours(0,0,0,0);
+    var d = new Date(r.starts_at); d.setHours(0,0,0,0);
     return d.getTime() === today.getTime();
   }).length;
-  var urgDead    = deadlines.filter(function(r) { return !r.done && new Date(r.due_date+'T00:00:00') <= tomorrow; }).length;
-  var unpaid     = fees.filter(function(r) { return !r.paid; }).length;
-  var activeProcs= procs.filter(function(r) { return r.status === 'Ativo'; }).length;
+  var urgDead    = deadlines.filter(function(r) { return !r.completed_at && new Date(r.due_at) <= new Date(today.getTime() + 48*3600000); }).length;
+  var unpaid     = fees.filter(function(r) { return !r.paid_at; }).length;
+  var activeProcs= procs.filter(function(r) { return r.status === 'active'; }).length;
 
-  var recentLeads = leads.slice(0,5).map(function(r) {
-    return '<tr><td style="color:var(--text)">' + esc(r.name || '—') + '</td>'
-      + '<td>' + esc(r.phone || '—') + '</td>'
-      + '<td>' + esc(r.practice_area || '—') + '</td>'
-      + '<td><span class="status ' + statusClass(r.status) + '">' + (r.status || 'Novo') + '</span></td>'
+  var recentLeads = leads.filter(function(r){return r.status === 'lead';}).slice(0,5).map(function(r) {
+    return '<tr><td style="color:var(--text)">' + esc(r.full_name || '—') + '</td>'
+      + '<td>' + esc(r.phone_e164 || '—') + '</td>'
+      + '<td>' + esc(r.lead_practice_area || '—') + '</td>'
+      + '<td><span class="status ' + statusClass(r.status) + '">' + (r.status || 'lead') + '</span></td>'
       + '<td>' + fmtDate(r.created_at) + '</td>'
       + '<td><div class="td-actions">'
-      + '<button class="btn btn-outline btn-sm" data-action="edit" data-table="leads" data-id="' + esc(r.id) + '">Editar</button>'
+      + '<button class="btn btn-outline btn-sm" data-action="edit" data-table="customers" data-id="' + esc(r.id) + '">Editar</button>'
       + '</div></td></tr>';
   }).join('');
 
   var nextAppts = appts.filter(function(r) {
-    return r.status !== 'Cancelado' && r.status !== 'Realizado';
+    return r.status !== 'cancelled' && r.status !== 'completed';
   }).slice(0,5).map(function(r) {
-    return '<tr><td style="color:var(--text)">' + esc(r.client_name || '—') + '</td>'
-      + '<td>' + esc(r.lawyer || '—') + '</td>'
-      + '<td>' + fmtDatetime(r.date_time) + '</td>'
+    return '<tr><td style="color:var(--text)">' + esc(r.title || '—') + '</td>'
+      + '<td>' + esc(r.responsible_user_id || '—') + '</td>'
+      + '<td>' + fmtDatetime(r.starts_at) + '</td>'
       + '<td><span class="status ' + statusClass(r.status) + '">' + esc(r.status || '') + '</span></td></tr>';
   }).join('');
 
   var urgDeadlines = deadlines.filter(function(r) {
-    return !r.done && new Date(r.due_date+'T00:00:00') <= new Date(today.getTime() + 7*86400000);
+    return !r.completed_at && new Date(r.due_at) <= new Date(today.getTime() + 7*86400000);
   }).slice(0,5).map(function(r) {
-    var d = new Date(r.due_date+'T00:00:00');
+    var d = new Date(r.due_at);
     var diff = Math.ceil((d - today) / 86400000);
     var cls = diff <= 0 ? 'status-urgente' : diff <= 2 ? 'status-aberto' : 'status-aguardando';
     var label = diff <= 0 ? 'Vencido' : diff === 1 ? 'Amanhã' : 'Em ' + diff + 'd';
     return '<tr><td style="color:var(--text)">' + esc(r.title || '—') + '</td>'
       + '<td>' + esc(r.process_number || '—') + '</td>'
-      + '<td>' + esc(r.lawyer || '—') + '</td>'
-      + '<td>' + fmtDate(r.due_date) + '</td>'
+      + '<td>' + esc(r.responsible_user_id || '—') + '</td>'
+      + '<td>' + fmtDatetime(r.due_at) + '</td>'
       + '<td><span class="status ' + cls + '">' + label + '</span></td></tr>';
   }).join('');
 
@@ -378,7 +288,7 @@ function renderDashboard() {
     + section('Prazos Urgentes', urgDeadlines
         ? '<div class="table-wrap"><table><thead><tr><th>Prazo</th><th>Processo</th><th>Responsável</th><th>Vencimento</th><th></th></tr></thead><tbody>' + urgDeadlines + '</tbody></table></div>'
         : emptyState('Nenhum prazo urgente. ✓'),
-      '<button class="btn btn-outline btn-sm" data-action="navigate" data-view="deadlines">Ver todos</button>');
+      '<button class="btn btn-outline btn-sm" data-action="navigate" data-view="legal_deadlines">Ver todos</button>');
 }
 
 function kpi(label, value, sub, type, icon) {
@@ -408,16 +318,16 @@ function emptyState(msg) {
    row. Works for any record that has a date_time field.
 */
 function gcalLink(r) {
-  if (!r.date_time) return '';
+  if (!r.starts_at && !r.date_time) return '';
   try {
-    var start = new Date(r.date_time);
+    var start = new Date(r.starts_at || r.date_time);
     var end   = new Date(start.getTime() + 60 * 60 * 1000); // +1h
     function fmt(d) {
       return d.toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
     }
-    var title    = encodeURIComponent('B&P – ' + (r.type || 'Consulta') + (r.client_name ? ' – ' + r.client_name : ''));
+    var title    = encodeURIComponent('B&P – ' + (r.kind || r.type || 'Consulta') + (r.title ? ' – ' + r.title : ''));
     var details  = encodeURIComponent(
-      (r.lawyer  ? 'Advogado: ' + r.lawyer + '\n' : '') +
+      (r.responsible_user_id  ? 'Responsável: ' + r.responsible_user_id + '\n' : '') +
       (r.status  ? 'Status: '   + r.status + '\n' : '') +
       (r.notes   ? 'Obs: '      + r.notes         : '')
     );
@@ -467,15 +377,17 @@ function renderTableView(viewKey) {
           return '<td title="' + esc(String(val||'')) + '">' + esc(String(val===null||val===undefined?'—':val)) + '</td>';
         }).join('');
         var calBtn = '';
-        if (cfg.table === 'appointments') {
+        var whatsappBtn = '';
+        if (cfg.entity === 'lead' && r.phone_e164) whatsappBtn = '<a class="btn btn-outline btn-sm" href="https://wa.me/'+esc(String(r.phone_e164).replace(/\D/g,''))+'" target="_blank" rel="noopener" title="Abrir WhatsApp">WA</a><button class="btn btn-outline btn-sm" data-action="log-contact" data-id="'+esc(r.id)+'" title="Registrar contato sem conteúdo">Registrar</button>';
+        if (cfg.table === 'legal_appointments') {
           var cal = gcalLink(r);
           if (cal) calBtn = '<a class="btn btn-outline btn-sm" href="' + cal + '" target="_blank" rel="noopener" title="Adicionar ao Google Calendar" style="text-decoration:none">📅</a>';
         }
         return '<tr>' + cells
           + '<td><div class="td-actions">'
-          + calBtn
-          + '<button class="btn btn-outline btn-sm" data-action="edit" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Editar</button>'
-          + '<button class="btn btn-danger btn-sm" data-action="delete" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Excluir</button>'
+          + calBtn + whatsappBtn
+          + (cfg.readOnly ? '' : '<button class="btn btn-outline btn-sm" data-action="edit" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Editar</button>')
+          + (cfg.readOnly ? '' : '<button class="btn btn-danger btn-sm" data-action="delete" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Excluir</button>')
           + '</div></td></tr>';
       }).join('');
 
@@ -504,6 +416,8 @@ adminActionRoot.addEventListener('click', function(event) {
   var action = control.getAttribute('data-action');
   var table = control.getAttribute('data-table');
   if (action === 'edit') editRecord(table, control.getAttribute('data-id'));
+  else if (action === 'run-ai') runInternalAI();
+  else if (action === 'log-contact') openContactLog(control.getAttribute('data-id'));
   else if (action === 'delete') deleteRecord(table, control.getAttribute('data-id'));
   else if (action === 'navigate') navigateTo(control.getAttribute('data-view'));
   else if (action === 'page') goPage(table, Number(control.getAttribute('data-index')));
@@ -519,13 +433,17 @@ function renderView(view) {
     area.innerHTML = renderDashboard();
   } else if (view === 'ia_juridica') {
     area.innerHTML = renderIAJuridica();
+  } else if (view === 'compliance') {
+    area.innerHTML = renderCompliance();
   } else if (VIEWS[view]) {
     area.innerHTML = renderTableView(view);
   }
 }
 
 /* IA jurídica foi desativada nesta entrega. Não enviar chaves de provedores nem dados de casos do browser. */
-function renderIAJuridica(){return '<div class="ia-card"><h3 class="ia-card-title">Assistente jurídico desativado</h3><p class="ia-hint">A integração será reativada somente por backend autenticado, com segredos server-side, controle de acesso e política de tratamento de dados.</p></div>';}
+function renderIAJuridica(){return '<div class="ia-layout"><div><div class="ia-card"><h3 class="ia-card-title"><span class="ia-dot ia-dot-blue"></span>Assistente interno</h3><p class="ia-hint">A IA apoia a equipe. Ela não atende clientes, não decide estratégia e não recebe dados pessoais, números de processo ou documentos.</p><label class="form-label" for="ia-mode">Tarefa</label><select class="form-select" id="ia-mode"><option value="triage">Triagem operacional</option><option value="summary">Resumo de texto sanitizado</option><option value="deadline_plan">Plano de conferência de prazo</option><option value="internal_draft">Rascunho interno</option></select><label class="form-label" for="ia-input" style="margin-top:12px">Texto interno sem dados pessoais</label><textarea class="form-textarea" id="ia-input" rows="10" maxlength="12000" placeholder="Remova nomes, CPF, telefone, e-mail, número de processo, documentos e informações sigilosas."></textarea><label class="consent" style="margin-top:12px"><input type="checkbox" id="ia-safe"> <span>Confirmei que o texto foi sanitizado e que a resposta será revisada por advogado antes de qualquer uso.</span></label><button class="btn btn-primary" type="button" data-action="run-ai" style="margin-top:14px">Gerar rascunho interno</button><p class="ia-hint" id="ia-feedback"></p></div></div><div class="ia-card"><h3 class="ia-card-title">Resultado</h3><div id="ia-result" class="ia-results-placeholder"><p>O resultado aparecerá aqui com o selo “revisão humana obrigatória”.</p></div></div></div>';}
+function renderCompliance(){var items=['Nome, razão social, CNPJ, inscrições e qualificações confirmados','Texto objetivo, verdadeiro, sóbrio e informativo','Sem promessa de resultado, comparação ou autoengrandecimento','Sem preço, desconto, gratuidade ou oferta agressiva de contratação','Plantão, horários e canais confirmados pela operação real','Fotos, biografias, títulos e especialidades autorizados e comprováveis','Aviso de privacidade, bases legais e canal do controlador preenchidos','Revisão final pelo advogado responsável e, se necessário, consulta ao TED/OAB'];return '<div class="ia-card"><h3 class="ia-card-title">Checklist editorial · Provimento 205/2021</h3><p class="ia-hint">Checklist operacional. Não é parecer jurídico nem certificação automática.</p>'+items.map(function(item,i){return '<label class="consent" style="display:flex;margin:12px 0"><input type="checkbox" data-compliance="'+i+'"> <span>'+esc(item)+'</span></label>';}).join('')+'<div class="ia-card" style="margin-top:18px;background:rgba(185,138,87,.08)"><strong>Estado atual</strong><p class="ia-hint">A publicação só deve ser liberada depois da validação humana dos itens acima. A ferramenta organiza evidências; não substitui a análise do advogado ou do TED/OAB.</p></div></div>';}
+async function runInternalAI(){var mode=document.getElementById('ia-mode').value,input=document.getElementById('ia-input').value.trim(),safe=document.getElementById('ia-safe').checked,feedback=document.getElementById('ia-feedback'),result=document.getElementById('ia-result');if(!safe||input.length<10){feedback.textContent='Confirme a sanitização e informe um texto interno suficiente.';return;}feedback.textContent='Gerando com backend seguro…';result.innerHTML='<div class="ia-loading"><span class="ia-spinner"></span>Processando sem armazenar prompt ou resposta.</div>';try{var response=await fetch('/api/ia',{method:'POST',headers:{Authorization:'Bearer '+authSession.access_token,'Content-Type':'application/json'},body:JSON.stringify({mode:mode,input:input})});var data=await response.json().catch(function(){return{};});if(!response.ok)throw new Error(data.error||'Falha ao gerar.');result.innerHTML='<div class="ia-result-body"><strong style="color:var(--gold)">Rascunho interno · revisão humana obrigatória</strong><p class="ia-strategy-text">'+esc(data.output||'')+'</p></div>';feedback.textContent='Execução registrada sem salvar o texto enviado ou a resposta.';}catch(error){result.innerHTML='<div class="ia-error">'+esc(error.message||'Não foi possível gerar o rascunho.')+'</div>';feedback.textContent='';}}
 
 function onSearch(table, val) {
   filterText[table] = val;
@@ -617,9 +535,8 @@ function saveDrawer(cfg) {
     payload[f.key] = raw === '' ? null : raw;
   });
 
-  var p = editingId
-    ? sbUpdate(cfg.table, editingId, payload)
-    : sbInsert(cfg.table, payload);
+  if (!editingId) { payload.tenant_id = currentTenantId; payload.created_by = authSession && authSession.user ? authSession.user.id : null; if (cfg.entity === 'lead') payload.status = 'lead'; if (cfg.entity === 'client' && !payload.status) payload.status = 'active'; }
+  var p = editingId ? sbUpdate(cfg.table, editingId, payload) : sbInsert(cfg.table, payload);
 
   p.then(function(res) {
     saveBtn.disabled = false;
@@ -638,7 +555,7 @@ function saveDrawer(cfg) {
    EDIT / DELETE
    ════════════════════════════════════════════════════════════════ */
 function editRecord(table, id) {
-  var cfg = Object.values(VIEWS).find(function(v) { return v.table === table; });
+  var cfg = (VIEWS[currentView] && VIEWS[currentView].table === table) ? VIEWS[currentView] : Object.values(VIEWS).find(function(v) { return v.table === table; });
   var row = (store[table] || []).find(function(r) { return String(r.id) === String(id); });
   if (cfg && row) openDrawer(cfg, row);
 }
@@ -662,6 +579,8 @@ function deleteRecord(table, id) {
   );
 }
 window.deleteRecord = deleteRecord;
+
+function openContactLog(customerId){var row=(store.customers||[]).find(function(r){return String(r.id)===String(customerId);});if(!row)return;document.getElementById('drawer-title').textContent='Registrar contato seguro';document.getElementById('drawer-body').innerHTML='<p class="ia-hint">Registre apenas o fato operacional. Não copie mensagens, documentos, nomes de terceiros, números de processo ou dados pessoais.</p><label class="form-label">Direção</label><select class="form-select" id="contact-direction"><option value="outbound">Saída do escritório</option><option value="inbound">Entrada do contato</option><option value="internal">Nota interna</option></select><label class="form-label" style="margin-top:12px">Tipo</label><select class="form-select" id="contact-type"><option value="contact">Contato</option><option value="handoff">Encaminhamento ao advogado</option><option value="callback">Retorno solicitado</option><option value="appointment">Agendamento</option><option value="consent">Consentimento</option><option value="opt_out">Opt-out</option></select><label class="form-label" style="margin-top:12px">Resumo operacional</label><textarea class="form-textarea" id="contact-summary" maxlength="500" rows="4" placeholder="Ex.: retorno solicitado; equipe orientou aguardar contato do advogado."></textarea>';document.getElementById('drawer-overlay').classList.add('open');document.getElementById('drawer-save').onclick=async function(){var summary=document.getElementById('contact-summary').value.trim();if(summary.length<2){toast('Informe um resumo operacional curto.','error');return;}var response=await fetch('/api/contact-events',{method:'POST',headers:{Authorization:'Bearer '+authSession.access_token,'Content-Type':'application/json'},body:JSON.stringify({customer_id:customerId,direction:document.getElementById('contact-direction').value,event_type:document.getElementById('contact-type').value,safe_summary:summary})});var data=await response.json().catch(function(){return{};});if(!response.ok){toast(data.error||'Não foi possível registrar.','error');return;}toast('Contato registrado sem conteúdo de mensagem.','success');closeDrawer();};}
 
 /* ════════════════════════════════════════════════════════════════
    CONFIRM DIALOG

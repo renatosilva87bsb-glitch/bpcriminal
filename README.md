@@ -24,25 +24,35 @@ Site institucional estático, com páginas jurídicas editoriais, biblioteca de 
 - Projeto Vercel conectado ao repositório.
 - Node.js 22+ para verificações locais (não é necessário build para o site estático).
 
+## CRM jurídico e IA interna
+
+A base Supabase conectada ao projeto usa `tenants` e `tenant_members` para isolar escritórios e permissões. Os papéis atuais são `owner`, `admin`, `manager`, `agent` e `viewer`. O painel jurídico usa tabelas `legal_cases`, `legal_deadlines`, `legal_appointments`, `legal_fees`, `legal_powers_of_attorney` e `legal_case_movements`, com RLS por tenant.
+
+Leads públicos entram em `customers` com `status=lead`, identificador idempotente, área e urgência. O histórico de WhatsApp usa `legal_contact_events` e aceita somente resumo operacional; não deve receber cópia de mensagens, documentos, CPF, números de processo ou dados de terceiros.
+
+A IA interna usa `api/ia.js`, exige sessão autenticada e papel operacional, aplica limite por usuário/tenant, bloqueia padrões de dados sensíveis e grava somente hashes, modo, modelo, status, latência e a obrigação de revisão humana em `legal_ai_runs`. Prompts e respostas não são armazenados. Configure `GEMINI_API_KEY` apenas no ambiente server-side. A IA não atende o público, não decide estratégia e não substitui advogado.
+
+O menu **Checklist OAB** é uma ferramenta editorial interna baseada no Provimento CFOAB nº 205/2021. Ele não certifica conformidade. A liberação final exige conferência do advogado responsável e, quando necessário, consulta ao TED/OAB.
+
 ## Configuração Supabase
 
 1. Crie um projeto Supabase na região mais próxima do público atendido.
 2. No SQL Editor, execute `supabase/schema.sql` em um projeto novo.
 3. Em Authentication > Providers, mantenha habilitado Email/Password.
 4. Desabilite public sign-ups para o painel interno. Crie usuários administrativos manualmente em Authentication > Users.
-5. Crie a banca e vincule o primeiro usuário. Substitua os valores no exemplo abaixo pelos UUIDs reais:
+5. Crie o primeiro escritório/tenant e vincule o primeiro usuário owner. Substitua os UUIDs abaixo pelos valores reais:
 
 ```sql
-insert into public.firms(legal_name, display_name)
-values ('RAZÃO SOCIAL OFICIAL VALIDADA', 'B&P Advocacia')
+insert into public.tenants(name, owner_id)
+values ('B&P Advocacia — validar razão social', 'UUID_DO_USUARIO_AUTH')
 returning id;
 
-insert into public.firm_memberships(firm_id, user_id, role)
-values ('UUID_DA_FIRMA', 'UUID_DO_USUARIO_AUTH', 'owner');
+insert into public.tenant_members(tenant_id, user_id, role)
+values ('UUID_DO_TENANT', 'UUID_DO_USUARIO_AUTH', 'owner');
 ```
 
 6. Configure as URLs de redirect do Supabase Auth para o domínio final e para o domínio de preview necessário.
-7. Nunca coloque `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` no HTML, em variáveis `VITE_*` ou em qualquer bundle público.
+7. Nunca coloque `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY` ou `GEMINI_API_KEY` no HTML, em variáveis `VITE_*` ou em qualquer bundle público.
 
 ### Variáveis de ambiente na Vercel
 
@@ -51,7 +61,6 @@ Cadastre em Project > Settings > Environment Variables:
 - `SUPABASE_URL`: URL do projeto.
 - `SUPABASE_PUBLISHABLE_KEY`: publishable key (ou `SUPABASE_ANON_KEY` em projetos legados).
 - `SUPABASE_SECRET_KEY`: secret key server-side (ou `SUPABASE_SERVICE_ROLE_KEY` em projetos legados).
-- `LEAD_HASH_SECRET`: segredo aleatório forte, exclusivo, com pelo menos 32 bytes.
 - `PUBLIC_SITE_URL`: `https://bandeiraepaulo.adv.br`.
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`: chaves e identificação Web Push. A chave privada nunca deve ser exposta no frontend.
 
@@ -85,11 +94,10 @@ Use ambientes separados para Production, Preview e Development. Não comite valo
 
 ## Segurança e limites conhecidos
 
-- O site público não tem acesso direto às tabelas operacionais ou tabelas de CMS. Solicitações são encaminhadas por `/api/leads`, com identificador idempotente, validação, honeypot e rate limit por IP pseudonimizado. A publicação dinâmica de artigos/equipe ainda exige endpoint público com mapeamento seguro de domínio para `firm_id`.
-- O painel usa Supabase Auth. O acesso aos registros é filtrado por RLS com `firm_id` obtido da associação autenticada.
-- A função `create_public_lead` é executável somente por `service_role`; não conceda execução a `anon` ou `authenticated`.
-- O painel administrativo mantém módulos operacionais da versão anterior. A IA jurídica foi desativada porque a versão anterior enviava chaves e dados diretamente do navegador. Só deve ser reativada com backend seguro, autorização e política de dados.
-- A base SQL é inicial, não uma migração automática do schema inseguro anterior. Não execute em produção com dados existentes sem backup e plano de migração. O endpoint público de leads encaminha para a primeira firma cadastrada; esta entrega está preparada para um escritório/domínio por deploy. Para múltiplos escritórios no mesmo projeto, implemente e teste o mapeamento host → `firm_id` antes de ativar novos domínios.
+- O site público não tem acesso direto às tabelas operacionais. Solicitações são encaminhadas por `/api/leads`, com identificador idempotente, validação e honeypot; a linha entra em `customers` como `lead`.
+- O painel usa Supabase Auth e RLS por `tenant_id`, com papéis `owner`, `admin`, `manager`, `agent` e `viewer`.
+- A IA interna usa backend server-side, limite por usuário/tenant, bloqueio de dados sensíveis, logs sem prompt/resposta e revisão humana obrigatória. Não há chave de IA no frontend.
+- A migração jurídica é aditiva e foi aplicada no projeto conectado. Em qualquer outro ambiente, revise e aplique `supabase/migrations/20261103103000_legal_crm_hardening.sql` e `20261103103000_tenant_push_subscriptions.sql` com backup e plano de reversão.
 - O formulário coleta somente dados mínimos de contato e área geral. Não solicite relatos detalhados, dados de terceiros, documentos processuais ou informações sensíveis nele.
 - As tabelas de artigos, equipe e áreas estão preparadas no banco, mas a publicação dinâmica no site e a edição desses conteúdos pelo painel ainda não foram conectadas nesta versão. O site público usa conteúdo editorial estático revisável.
 - O aviso de privacidade é um modelo inicial, não parecer jurídico. O controlador deve preencher identidade, contato, bases legais, retenção, operadores e transferências antes de publicar.

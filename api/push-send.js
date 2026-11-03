@@ -12,14 +12,14 @@ export default async function handler(req,res) {
     if (!auth.ok) return json(res,401,{error:'Sessão inválida.'});
     const user=await auth.json();
     const headers={apikey:secret,'Content-Type':'application/json'}; if(!secret.startsWith('sb_secret_')) headers.Authorization=`Bearer ${secret}`;
-    const memberships=await fetch(`${url.replace(/\/$/,'')}/rest/v1/firm_memberships?select=firm_id,role&user_id=eq.${encodeURIComponent(user.id)}&is_active=eq.true&limit=1`,{headers,signal:AbortSignal.timeout(7000)});
+    const memberships=await fetch(`${url.replace(/\/$/,'')}/rest/v1/tenant_members?select=tenant_id,role&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,{headers,signal:AbortSignal.timeout(7000)});
     if(!memberships.ok) return json(res,503,{error:'Falha ao validar permissões.'});
     const member=(await memberships.json())[0]; if(!member||!['owner','admin'].includes(member.role)) return json(res,403,{error:'Apenas proprietários e administradores podem enviar notificações.'});
     const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
     const title=String(body?.title||'B&P Advocacia').trim().slice(0,80), message=String(body?.body||'Você tem uma nova notificação institucional.').trim().slice(0,180);
     const path=String(body?.url||'/'); if(!path.startsWith('/')||path.startsWith('//')) return json(res,400,{error:'Destino inválido.'});
     webpush.setVapidDetails(subject,pub,priv);
-    const list=await fetch(`${url.replace(/\/$/,'')}/rest/v1/push_subscriptions?select=endpoint,p256dh,auth_secret&firm_id=eq.${member.firm_id}`,{headers,signal:AbortSignal.timeout(7000)});
+    const list=await fetch(`${url.replace(/\/$/,'')}/rest/v1/push_subscriptions?select=endpoint,p256dh,auth_secret&tenant_id=eq.${member.tenant_id}`,{headers,signal:AbortSignal.timeout(7000)});
     if(!list.ok) return json(res,503,{error:'Não foi possível consultar as inscrições.'});
     const subscriptions=await list.json(); let sent=0, expired=0;
     await Promise.all(subscriptions.map(async s=>{try{await webpush.sendNotification({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth_secret}},JSON.stringify({title,body:message,url:path}),{TTL:60});sent++;}catch(e){if(e.statusCode===404||e.statusCode===410){expired++;await fetch(`${url.replace(/\/$/,'')}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(s.endpoint)}`,{method:'DELETE',headers});}}}));
