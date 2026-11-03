@@ -57,3 +57,7 @@ Não aplique `supabase/schema.sql` sobre o projeto conectado: ele é uma base le
 Execute `npm ci`, `npm run check` e `npm test`. Os testes cobrem leads com tenant e idempotência, segurança de estado OAuth, cifragem, autenticação obrigatória e origem das integrações. Cache fixo de CSS/JS é revalidado para evitar que versões quebradas permaneçam um ano no navegador. `sw.js` usa atualização sem cache no servidor e limpa caches antigos.
 
 Salvar checkpoint Git não é o mesmo que publicar. Após o checkpoint, publique na Vercel e confira home, `/admin`, assets, manifest, service worker, `/api/config`, início OAuth HTTP 302 e APIs autenticadas. Consentimento Google e notificações reais precisam da participação do titular/dispositivo e não podem ser certificados com uma requisição HTTP anônima.
+
+## Verificação desta entrega
+
+A publicação de 03/11/2026 foi validada no domínio informado: home e painel HTTP 200, CSS completo de 27 KB, assets de tema/PWA/CRM iguais aos arquivos de distribuição, notícias oficiais HTTP 200, início OAuth HTTP 302, sessão master real no browser e geração autenticada de IA HTTP 200 com revisão humana obrigatória. A consulta Google retornou `connected:false`: o consentimento do titular continua pendente. A suíte passou com 16 testes. Nenhum cliente, processo ou documento fictício foi criado no banco para esses testes.

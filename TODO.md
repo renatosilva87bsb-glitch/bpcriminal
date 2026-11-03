@@ -30,7 +30,7 @@
 
 ## Liberação definitiva — pendências reais
 
-- [ ] Publicar esta rodada de correções na Vercel e validar sua versão em produção. O deployment anterior está no ar; o novo ainda deve ser confirmado.
+- [x] Publicar esta rodada de correções na Vercel e validar a versão em produção: home/admin/assets/manifest/SW/news/config com HTTP 200, início OAuth com 302, login master real no browser e IA autenticada com HTTP 200, texto gerado e revisão humana obrigatória. 16 testes automatizados passaram.
 - [ ] Concluir consentimento da conta Google do titular e testar um evento, contato autorizado e documento próprios. Se o Google Cloud exigir, habilitar Calendar/Drive/People APIs, usuários de teste ou verificação do aplicativo. Credenciais cadastradas não provam autorização concluída.
 - [ ] Permitir notificações no dispositivo real e conferir recebimento do teste. Push depende do navegador, sistema e permissão do usuário.
 - [ ] Serviço de push agendado de prazos com o painel fechado não foi ativado; nesta versão os alertas são no CRM e nos eventos enviados à Agenda.

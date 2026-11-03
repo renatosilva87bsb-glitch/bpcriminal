@@ -72,18 +72,21 @@ async function handleApi(req, res, handler) {
 }
 
 async function serveStatic(req, res) {
-  let requestPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  let requestPath;
+  try { requestPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); }
+  catch { res.statusCode = 400; return res.end('Bad request'); }
   if (requestPath === '/') requestPath = '/index.html';
   if (requestPath.endsWith('/')) requestPath += 'index.html';
-  const candidate = path.resolve(staticRoot, `.${requestPath}`);
+  let candidate = path.resolve(staticRoot, `.${requestPath}`);
   if (!candidate.startsWith(staticRoot + path.sep)) { res.statusCode = 400; return res.end('Bad request'); }
   try {
-    const stat = await fs.stat(candidate);
+    let stat = await fs.stat(candidate);
+    if (stat.isDirectory()) { candidate = path.join(candidate, 'index.html'); stat = await fs.stat(candidate); }
     if (!stat.isFile()) throw new Error('not_file');
     const ext = path.extname(candidate).toLowerCase();
     res.statusCode = 200;
     res.setHeader('Content-Type', mime[ext] || 'application/octet-stream');
-    res.setHeader('Cache-Control', ext === '.html' || ext === '.json' ? 'no-cache' : 'public, max-age=86400');
+    res.setHeader('Cache-Control', requestPath.startsWith('/admin') ? 'private, no-store' : ['.html','.json','.css','.js'].includes(ext) ? 'no-cache' : 'public, max-age=86400');
     res.end(await fs.readFile(candidate));
   } catch {
     res.statusCode = 404;
