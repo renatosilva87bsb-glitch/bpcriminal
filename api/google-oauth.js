@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import calendarHandler from './google-calendar.js';
 
 const json = (res, status, payload) => { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); return res.status(status).json(payload); };
 const siteUrl = () => String(process.env.PUBLIC_SITE_URL || '').replace(/\/$/, '');
@@ -6,6 +7,7 @@ const redirectUri = () => `${siteUrl()}/api/google/oauth/callback`;
 const cookie = (value, maxAge) => `bp_google_oauth_state=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax; Secure`;
 
 export default async function handler(req, res) {
+  if (String(req.headers?.cookie || '').includes('bp_google_calendar_state=')) return calendarHandler(req, res);
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return json(res, 405, { error: 'Método não permitido.' }); }
   const url = new URL(req.url || '/', 'http://localhost');
   const clientId = process.env.GOOGLE_CLIENT_ID;

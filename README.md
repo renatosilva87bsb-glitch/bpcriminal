@@ -146,3 +146,7 @@ A home usa imagens locais do Supremo Tribunal Federal e do Palácio da Justiça 
 A home agora expõe o endpoint público `GET /api/news`, que agrega notícias do RSS oficial do STJ e das páginas oficiais de notícias do STF e do CNJ. O servidor mantém cache de cinco minutos, aplica timeout por fonte e informa quais fontes estão disponíveis. O navegador atualiza o painel automaticamente a cada cinco minutos, preservando o link para a publicação original. Isso é atualização automática periódica, não transmissão em tempo real segundo a segundo.
 
 Fontes: [RSS de notícias do STJ](https://res.stj.jus.br/hrestp-c-portalp/RSS.xml), [Notícias STF](https://noticias.stf.jus.br/) e [Agência CNJ](https://www.cnj.jus.br/agencia-cnj/noticias-do-cnj/).
+
+## Integrações Google do CRM
+
+O CRM oferece conexão autorizada pelo advogado com Google Agenda, Google Drive e Google Contatos. O consentimento usa os escopos `calendar.events`, `drive.file` e `contacts`; o Drive fica limitado aos arquivos/pasta criados pelo próprio CRM. Refresh tokens não ficam no navegador: são criptografados no backend antes de serem persistidos no Supabase. Compromissos podem ser sincronizados individualmente, a pasta documental pode ser preparada no Drive e clientes podem ser enviados ao Google Contatos a partir do painel. A conexão usa o callback Google já autorizado: `/api/google/oauth/callback`.

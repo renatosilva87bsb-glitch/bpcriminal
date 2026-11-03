@@ -10,6 +10,7 @@
   "orientation": "portrait-primary",
   "background_color": "#f4f0e8",
   "theme_color": "#17242b",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/assets/pwa/icon-192.png",

@@ -344,6 +344,26 @@ function gcalLink(r) {
   } catch(e) { return ''; }
 }
 
+async function googleApi(path, options) {
+  if (!authSession) throw new Error('Sessão não autenticada.');
+  var response = await fetch(path, Object.assign({ headers: { 'Authorization': 'Bearer ' + authSession.access_token, 'Content-Type': 'application/json' } }, options || {}));
+  var data = await response.json().catch(function(){ return {}; });
+  if (!response.ok) throw new Error(data.error || 'Não foi possível concluir a integração Google.');
+  return data;
+}
+async function connectGoogleCalendar() {
+  try { var data = await googleApi('/api/google/calendar/connect', { method: 'POST', body: '{}' }); window.location.href = data.url; } catch (error) { alert(error.message); }
+}
+async function prepareGoogleDrive() {
+  try { var data = await googleApi('/api/google/drive/folder', { method: 'POST', body: '{}' }); window.open(data.webViewLink, '_blank', 'noopener'); } catch (error) { alert(error.message); }
+}
+async function syncGoogleCalendar(id) {
+  try { var data = await googleApi('/api/google/calendar/sync', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }); if (data.htmlLink) window.open(data.htmlLink, '_blank', 'noopener'); else alert('Compromisso sincronizado no Google Agenda.'); } catch (error) { alert(error.message); }
+}
+async function syncGoogleContact(id) {
+  try { await googleApi('/api/google/contacts/sync', { method: 'POST', body: JSON.stringify({ customer_id: id }) }); alert('Contato sincronizado no Google Contatos.'); } catch (error) { alert(error.message); }
+}
+
 /* ════════════════════════════════════════════════════════════════
    RENDER TABLE VIEW
    ════════════════════════════════════════════════════════════════ */
@@ -380,15 +400,21 @@ function renderTableView(viewKey) {
           return '<td title="' + esc(String(val||'')) + '">' + esc(String(val===null||val===undefined?'—':val)) + '</td>';
         }).join('');
         var calBtn = '';
+        var calendarSyncBtn = '';
+        var contactsSyncBtn = '';
         var whatsappBtn = '';
         if (cfg.entity === 'lead' && r.phone_e164) whatsappBtn = '<a class="btn btn-outline btn-sm" href="https://wa.me/'+esc(String(r.phone_e164).replace(/\D/g,''))+'" target="_blank" rel="noopener" title="Abrir WhatsApp">WA</a><button class="btn btn-outline btn-sm" data-action="log-contact" data-id="'+esc(r.id)+'" title="Registrar contato sem conteúdo">Registrar</button>';
         if (cfg.table === 'legal_appointments') {
           var cal = gcalLink(r);
           if (cal) calBtn = '<a class="btn btn-outline btn-sm" href="' + cal + '" target="_blank" rel="noopener" title="Adicionar ao Google Calendar" style="text-decoration:none">📅</a>';
+          calendarSyncBtn = '<button class="btn btn-outline btn-sm" data-action="calendar-sync" data-id="' + esc(cfg.table === 'legal_appointments' ? r.id : '') + '" title="Sincronizar com Google Agenda">Sync</button>';
+        }
+        if (cfg.table === 'customers' && cfg.entity === 'client') {
+          contactsSyncBtn = '<button class="btn btn-outline btn-sm" data-action="contact-sync" data-id="' + esc(r.id) + '" title="Sincronizar contato com Google Contatos">Contato</button>';
         }
         return '<tr>' + cells
           + '<td><div class="td-actions">'
-          + calBtn + whatsappBtn
+          + calBtn + calendarSyncBtn + contactsSyncBtn + whatsappBtn
           + (cfg.readOnly ? '' : '<button class="btn btn-outline btn-sm" data-action="edit" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Editar</button>')
           + (cfg.readOnly ? '' : '<button class="btn btn-danger btn-sm" data-action="delete" data-table="' + esc(cfg.table) + '" data-id="' + esc(r.id) + '">Excluir</button>')
           + '</div></td></tr>';
@@ -405,6 +431,8 @@ function renderTableView(viewKey) {
     + '<input class="search-input" type="search" placeholder="Buscar…" value="' + esc(filterText[cfg.table]||'') + '" data-action="search" data-table="' + esc(cfg.table) + '">'
     + '<span class="section-label">' + total + ' registro' + (total!==1?'s':'') + '</span>'
     + '</div>'
+    + (cfg.table === 'legal_appointments' ? '<button class="btn btn-outline btn-sm" data-action="calendar-connect">Conectar Google Agenda</button><button class="btn btn-outline btn-sm" data-action="drive-connect">Preparar Google Drive</button>' : '')
+    + (cfg.table === 'customers' && cfg.entity === 'client' ? '<button class="btn btn-outline btn-sm" data-action="calendar-connect">Conectar Google</button>' : '')
     + '</div>'
     + '<div class="table-wrap"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>'
     + '<div class="pagination"><span>' + paginationInfo + '</span><div class="page-btns">' + pageButtons + '</div></div>';
@@ -424,6 +452,10 @@ adminActionRoot.addEventListener('click', function(event) {
   else if (action === 'delete') deleteRecord(table, control.getAttribute('data-id'));
   else if (action === 'navigate') navigateTo(control.getAttribute('data-view'));
   else if (action === 'page') goPage(table, Number(control.getAttribute('data-index')));
+  else if (action === 'calendar-connect') connectGoogleCalendar();
+  else if (action === 'drive-connect') prepareGoogleDrive();
+  else if (action === 'calendar-sync') syncGoogleCalendar(control.getAttribute('data-id'));
+  else if (action === 'contact-sync') syncGoogleContact(control.getAttribute('data-id'));
 });
 adminActionRoot.addEventListener('input', function(event) {
   var control = event.target.closest('[data-action="search"]');

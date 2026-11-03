@@ -55,33 +55,15 @@ button:disabled{opacity:.6;cursor:wait}
 @keyframes emergency-card{0%,100%{box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28)}50%{box-shadow:0 0 0 2px rgba(255,107,97,.48),0 0 34px rgba(196,43,34,.5)}}
 @media(prefers-reduced-motion:reduce){.emergency-pulse i,.hero-alert-emergency{animation:none}}
 
-/* Plantão Criminal 24h — destaque de emergência solicitado pelo escritório. */
-.emergency-pulse{color:#ffe8e6;font-weight:700}
-.emergency-pulse i{background:#ff5a52!important;box-shadow:0 0 0 0 rgba(255,90,82,.7);animation:emergency-dot 1.35s ease-in-out infinite}
-.hero-alert-emergency{border-color:#ff6b61!important;box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28);animation:emergency-card 1.8s ease-in-out infinite}
-.hero-alert-emergency strong{color:#ffe3e0}
-@keyframes emergency-dot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,90,82,.75)}50%{opacity:.6;box-shadow:0 0 0 8px rgba(255,90,82,0)}}
-@keyframes emergency-card{0%,100%{box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28)}50%{box-shadow:0 0 0 2px rgba(255,107,97,.48),0 0 34px rgba(196,43,34,.5)}}
+/* Plantão Criminal 24h — destaque de emergência. */
+.emergency-pulse{color:#ffe8e6;font-weight:700}.emergency-pulse i{background:#ff5a52!important;box-shadow:0 0 0 0 rgba(255,90,82,.7);animation:emergency-dot 1.35s ease-in-out infinite}.hero-alert-emergency{border-color:#ff6b61!important;box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28);animation:emergency-card 1.8s ease-in-out infinite}.hero-alert-emergency strong{color:#ffe3e0}@keyframes emergency-dot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,90,82,.75)}50%{opacity:.6;box-shadow:0 0 0 8px rgba(255,90,82,0)}}@keyframes emergency-card{0%,100%{box-shadow:0 0 0 1px rgba(255,107,97,.2),0 0 24px rgba(196,43,34,.28)}50%{box-shadow:0 0 0 2px rgba(255,107,97,.48),0 0 34px rgba(196,43,34,.5)}}
 @media(prefers-reduced-motion:reduce){.emergency-pulse i,.hero-alert-emergency{animation:none}}
-
-/* Referências institucionais de Brasília — imagens licenciadas com atribuição no rodapé. */
-.hero-image{background-image:linear-gradient(90deg,#17242b 0%,rgba(23,36,43,.32) 42%,rgba(23,36,43,.12) 100%),url('/assets/courts/stf-palacio.jpg');background-position:center 44%;}
-.criminal-photo{background-image:linear-gradient(rgba(17,31,37,.18),rgba(17,31,37,.3)),url('/assets/courts/tjdft-palacio.jpg');background-position:center 45%;}
-.court-credit{font-size:9px!important;color:#8f9a99!important;line-height:1.7!important;margin:14px 0 0!important;max-width:980px!important}
-.court-credit a{text-decoration:underline;color:#bfc7c4}
-
-/* Notícias oficiais: leitura editorial, origem e atualização visíveis. */
-.news-live-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.news-live-badge{display:inline-flex;align-items:center;gap:7px;color:#ffd8d4;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
-.news-live-badge::before{content:"";width:7px;height:7px;border-radius:50%;background:#ff665d;box-shadow:0 0 0 5px rgba(255,102,93,.14);animation:news-pulse 1.7s ease-in-out infinite}
-.news-refresh{font-size:11px;color:rgba(244,241,232,.62);margin:0}
-.news-refresh strong{color:#f4f1e8;font-weight:500}
-.news-grid{margin-top:32px}
-.news-card{display:flex!important;flex-direction:column;min-height:100%;text-decoration:none!important}
-.news-card h3{margin-bottom:12px}
-.news-card p{flex:1}
-.news-card .article-link{margin-top:20px}
-.news-source{display:inline-block;font-size:10px;color:#9da8a4;letter-spacing:.08em;text-transform:uppercase}
-.news-empty{grid-column:1/-1;color:rgba(244,241,232,.72);padding:22px 0}
-@keyframes news-pulse{0%,100%{opacity:1}50%{opacity:.42}}
-@media(prefers-reduced-motion:reduce){.news-live-badge::before{animation:none}}
+/* Referências institucionais de Brasília. */
+.hero-image{background-image:linear-gradient(90deg,#17242b 0%,rgba(23,36,43,.32) 42%,rgba(23,36,43,.12) 100%),url('/assets/courts/stf-palacio.jpg');background-position:center 44%}.criminal-photo{background-image:linear-gradient(rgba(17,31,37,.18),rgba(17,31,37,.3)),url('/assets/courts/tjdft-palacio.jpg');background-position:center 45%}.court-credit{font-size:9px!important;color:#8f9a99!important;line-height:1.7!important;margin:14px 0 0!important;max-width:980px!important}.court-credit a{text-decoration:underline;color:#bfc7c4}
+/* Notícias oficiais. */
+.news-live-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.news-live-badge{display:inline-flex;align-items:center;gap:7px;color:#ffd8d4;font-size:10px;letter-spacing:.12em;text-transform:uppercase}.news-live-badge:before{content:"";width:7px;height:7px;border-radius:50%;background:#ff665d;box-shadow:0 0 0 5px rgba(255,102,93,.14);animation:news-pulse 1.7s ease-in-out infinite}.news-refresh{font-size:11px;color:rgba(244,241,232,.62);margin:0}.news-refresh strong{color:#f4f1e8;font-weight:500}.news-grid{margin-top:32px}.news-card{display:flex!important;flex-direction:column;min-height:100%;text-decoration:none!important}.news-card h3{margin-bottom:12px}.news-card p{flex:1}.news-card .article-link{margin-top:20px}.news-source{display:inline-block;font-size:10px;color:#9da8a4;letter-spacing:.08em;text-transform:uppercase}.news-empty{grid-column:1/-1;color:rgba(244,241,232,.72);padding:22px 0}@keyframes news-pulse{0%,100%{opacity:1}50%{opacity:.42}}
+@media(prefers-reduced-motion:reduce){.news-live-badge:before{animation:none}}
+/* Tema automático / claro / escuro. */
+.theme-toggle{border:1px solid var(--line);background:transparent;color:inherit;font:10px var(--sans);letter-spacing:.08em;text-transform:uppercase;padding:9px 11px;cursor:pointer}.theme-toggle:hover{border-color:var(--brass);color:var(--brass)}
+html[data-theme="dark"]{--paper:#111b20;--paper-2:#18262c;--white:#17252b;--ink:#f2eee5;--muted:#aeb8b6;--line:rgba(240,238,229,.16);--brass:#d2a96d;--brass-light:#e5c28a}html[data-theme="dark"] body{background:var(--paper);color:var(--ink)}html[data-theme="dark"] .site-header{background:rgba(17,27,32,.94);border-color:rgba(240,238,229,.14)}html[data-theme="dark"] .main-nav{color:#d7dfdc}html[data-theme="dark"] .practice-section,html[data-theme="dark"] .team-section,html[data-theme="dark"] .contact-form{background:var(--white);color:var(--ink)}html[data-theme="dark"] .method-section{background:var(--paper-2)}html[data-theme="dark"] .knowledge-section{background:#203238}html[data-theme="dark"] .practice-card:hover{background:#20343b}html[data-theme="dark"] .practice-card p,html[data-theme="dark"] .section-note,html[data-theme="dark"] .team-placeholder p{color:#b4bfbd}html[data-theme="dark"] .contact-form input:not([type=checkbox]),html[data-theme="dark"] .contact-form select{color:var(--ink);border-color:rgba(240,238,229,.25)}
+@media(prefers-color-scheme:dark){html[data-theme="auto"]{--paper:#111b20;--paper-2:#18262c;--white:#17252b;--ink:#f2eee5;--muted:#aeb8b6;--line:rgba(240,238,229,.16);--brass:#d2a96d;--brass-light:#e5c28a}html[data-theme="auto"] body{background:var(--paper);color:var(--ink)}html[data-theme="auto"] .site-header{background:rgba(17,27,32,.94)}html[data-theme="auto"] .practice-section,html[data-theme="auto"] .team-section,html[data-theme="auto"] .contact-form{background:var(--white);color:var(--ink)}html[data-theme="auto"] .method-section{background:var(--paper-2)}html[data-theme="auto"] .knowledge-section{background:#203238}}
